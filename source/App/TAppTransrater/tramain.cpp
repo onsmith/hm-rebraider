@@ -53,7 +53,7 @@ using std::printf;
 
 
 int main(int argc, char* argv[]) {
-  // Print information
+  // Output version information
   fprintf(stdout, "\n");
   fprintf(stdout, "HM software: Transrater Version [%s] (including RExt)", NV_VERSION);
   fprintf(stdout, NVM_ONOS );
@@ -63,34 +63,31 @@ int main(int argc, char* argv[]) {
 
   // Create transrater
   TAppTraTop transrater;
-  transrater.create();
 
   // Parse configuration
   if (!transrater.parseCfg(argc, argv)) {
-    transrater.destroy();
     return EXIT_FAILURE;
   }
 
   // Capture starting time
-  Double dResult;
-  clock_t lBefore = clock();
+  clock_t startTime = clock();
 
   // Transrate video
   transrater.decode();
+
+  // Capture ending time
+  clock_t endTime = clock();
+
+  // Output timing information
+  Double elapsedTime = (Double) (endTime - startTime) / CLOCKS_PER_SEC;
+  printf("\n Total Time: %12.3f sec.\n", elapsedTime);
 
   // Report errors
   Int returnCode = EXIT_SUCCESS;
   if (transrater.getNumberOfChecksumErrorsDetected() != 0) {
     printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
-    returnCode = EXIT_FAILURE;
+    return EXIT_FAILURE;
   }
-
-  // Capture ending time
-  dResult = (Double) (clock() - lBefore) / CLOCKS_PER_SEC;
-  printf("\n Total Time: %12.3f sec.\n", dResult);
-
-  // Clean up transrater
-  transrater.destroy();
 
   // Terminate
   return returnCode;

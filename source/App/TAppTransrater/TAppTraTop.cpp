@@ -71,17 +71,7 @@ TAppTraTop::TAppTraTop() :
  * Destructor
  */
 TAppTraTop::~TAppTraTop() {
-}
-
-
-/**
- * Destructor
- */
-Void TAppTraTop::create() {
-}
-
-
-Void TAppTraTop::destroy() {
+  // TODO: Can we get rid of these?
   m_bitstreamFileName.clear();
   m_reconFileName.clear();
 }
@@ -91,7 +81,7 @@ Void TAppTraTop::destroy() {
  *
  */
 UInt TAppTraTop::getNumberOfChecksumErrorsDetected() const {
-  return m_cTDecTop.getNumberOfChecksumErrorsDetected();
+  return m_decoder.getNumberOfChecksumErrorsDetected();
 }
 
 
@@ -125,9 +115,8 @@ Void TAppTraTop::decode() {
   }
 
   // create & initialize internal classes
-  xCreateDecLib();
-  xInitDecLib  ();
-  m_iPOCLastDisplay += m_iSkipFrame;      // set the last displayed POC correctly for skip forward.
+  xCreateDecoder();
+  m_iPOCLastDisplay += m_iSkipFrame; // set the last displayed POC correctly for skip forward.
 
   // clear contents of colour-remap-information-SEI output file
   if (!m_colourRemapSEIFileName.empty()) {
@@ -172,7 +161,7 @@ Void TAppTraTop::decode() {
       if (m_iMaxTemporalLayer >= 0 && nalu.m_temporalId > m_iMaxTemporalLayer || !isNaluWithinTargetDecLayerIdSet(&nalu)) {
         bNewPicture = false;
       } else {
-        bNewPicture = m_cTDecTop.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
+        bNewPicture = m_decoder.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
         if (bNewPicture) {
           bitstreamFile.clear();
           /* location points to the current nalunit payload[1] due to the
@@ -191,21 +180,21 @@ Void TAppTraTop::decode() {
       }
     }
 
-    if ( (bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) &&
-        !m_cTDecTop.getFirstSliceInSequence () )
+    if ((bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) &&
+      !m_decoder.getFirstSliceInSequence())
     {
       if (!loopFiltered || bitstreamFile) {
-        m_cTDecTop.executeLoopFilters(poc, pcListPic);
+        m_decoder.executeLoopFilters(poc, pcListPic);
       }
       loopFiltered = (nalu.m_nalUnitType == NAL_UNIT_EOS);
       if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
-        m_cTDecTop.setFirstSliceInSequence(true);
+        m_decoder.setFirstSliceInSequence(true);
       }
     } else if (
       (bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) &&
-      m_cTDecTop.getFirstSliceInSequence () ) 
+      m_decoder.getFirstSliceInSequence())
     {
-      m_cTDecTop.setFirstSliceInPicture (true);
+      m_decoder.setFirstSliceInPicture(true);
     }
 
     if (pcListPic) {
@@ -222,23 +211,24 @@ Void TAppTraTop::decode() {
       }
       // write reconstruction to file
       if (bNewPicture) {
-        xWriteOutput( pcListPic, nalu.m_temporalId );
+        xWriteOutput(pcListPic, nalu.m_temporalId);
       }
-      if ((bNewPicture || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA) && m_cTDecTop.getNoOutputPriorPicsFlag()) {
-        m_cTDecTop.checkNoOutputPriorPics( pcListPic );
-        m_cTDecTop.setNoOutputPriorPicsFlag (false);
+      if ((bNewPicture || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA) && m_decoder.getNoOutputPriorPicsFlag()) {
+        m_decoder.checkNoOutputPriorPics(pcListPic);
+        m_decoder.setNoOutputPriorPicsFlag (false);
       }
-      if (bNewPicture &&
-           (   nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL
-            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP
-            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP
-            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL
-            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP ) ) {
-        xFlushOutput( pcListPic );
+      if (
+        bNewPicture &&
+        (nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL ||
+         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP ||
+         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP ||
+         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL ||
+         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP)) {
+        xFlushOutput(pcListPic);
       }
       if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
         xWriteOutput( pcListPic, nalu.m_temporalId );
-        m_cTDecTop.setFirstSliceInPicture (false);
+        m_decoder.setFirstSliceInPicture (false);
       }
       // write reconstruction to file -- for additional bumping as defined in C.5.2.3
       if (!bNewPicture && nalu.m_nalUnitType >= NAL_UNIT_CODED_SLICE_TRAIL_N && nalu.m_nalUnitType <= NAL_UNIT_RESERVED_VCL31) {
@@ -249,50 +239,51 @@ Void TAppTraTop::decode() {
 
   xFlushOutput(pcListPic);
   // delete buffers
-  m_cTDecTop.deletePicBuffer();
+  m_decoder.deletePicBuffer();
 
   // destroy internal classes
-  xDestroyDecLib();
+  xDestroyDecoder();
 }
 
 
-Void TAppTraTop::xCreateDecLib() {
-  // create decoder class
-  m_cTDecTop.create();
-}
-
-
-Void TAppTraTop::xDestroyDecLib() {
-  if ( !m_reconFileName.empty() )
-  {
+/**
+ * Clears the memory of the internal decoder object.
+ */
+Void TAppTraTop::xDestroyDecoder() {
+  if (!m_reconFileName.empty()) {
     m_cTVideoIOYuvReconFile.close();
   }
 
-  // destroy decoder class
-  m_cTDecTop.destroy();
+  m_decoder.destroy();
 
-  if (m_pcSeiColourRemappingInfoPrevious != NULL)
-  {
+  if (m_pcSeiColourRemappingInfoPrevious != NULL) {
     delete m_pcSeiColourRemappingInfoPrevious;
     m_pcSeiColourRemappingInfoPrevious = NULL;
   }
 }
 
 
-Void TAppTraTop::xInitDecLib() {
-  // initialize decoder class
-  m_cTDecTop.init();
-  m_cTDecTop.setDecodedPictureHashSEIEnabled(m_decodedPictureHashSEIEnabled);
+/**
+ * Creates and properly initializes the internal decoder object.
+ */
+Void TAppTraTop::xCreateDecoder() {
+  m_decoder.create();
+  m_decoder.init();
+  m_decoder.setDecodedPictureHashSEIEnabled(m_decodedPictureHashSEIEnabled);
+
 #if MCTS_ENC_CHECK
-  m_cTDecTop.setTMctsCheckEnabled(m_tmctsCheck);
+  m_decoder.setTMctsCheckEnabled(m_tmctsCheck);
 #endif
+
 #if O0043_BEST_EFFORT_DECODING
-  m_cTDecTop.setForceDecodeBitDepth(m_forceDecodeBitDepth);
+  m_decoder.setForceDecodeBitDepth(m_forceDecodeBitDepth);
 #endif
+
   if (!m_outputDecodedSEIMessagesFilename.empty()) {
     std::ostream &os=m_seiMessageFileStream.is_open() ? m_seiMessageFileStream : std::cout;
-    m_cTDecTop.setDecodedSEIMessageOutputStream(&os);
+    m_decoder.setDecodedSEIMessageOutputStream(&os);
   }
+
   if (m_pcSeiColourRemappingInfoPrevious != NULL) {
     delete m_pcSeiColourRemappingInfoPrevious;
     m_pcSeiColourRemappingInfoPrevious = NULL;
