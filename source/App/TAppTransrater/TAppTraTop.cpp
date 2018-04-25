@@ -320,7 +320,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
     if(pcPic->getOutputMark() && pcPic->getPOC() > m_iPOCLastDisplay) {
        numPicsNotYetDisplayed++;
       dpbFullness++;
-    } else if (pcPic->getSlice( 0 )->isReferenced()) {
+    } else if (pcPic->getSlice(0)->isReferenced()) {
       dpbFullness++;
     }
     iterPic++;
@@ -328,7 +328,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
 
   iterPic = pcListPic->begin();
 
-  if (numPicsNotYetDisplayed>2) {
+  if (numPicsNotYetDisplayed > 2) {
     iterPic++;
   }
 
@@ -338,7 +338,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
   if (numPicsNotYetDisplayed>2 && pcPic->isField()) {
     TComList<TComPic*>::iterator endPic = pcListPic->end();
     endPic--;
-    iterPic   = pcListPic->begin();
+    iterPic = pcListPic->begin();
     while (iterPic != endPic) {
       TComPic* pcPicTop = *(iterPic);
       iterPic++;
@@ -346,21 +346,21 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
 
       if ( pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() &&
           (numPicsNotYetDisplayed >  numReorderPicsHighestTid || dpbFullness > maxDecPicBufferingHighestTid) &&
-          (!(pcPicTop->getPOC()%2) && pcPicBottom->getPOC() == pcPicTop->getPOC()+1) &&
+          (!(pcPicTop->getPOC() % 2) && pcPicBottom->getPOC() == pcPicTop->getPOC() + 1) &&
           (pcPicTop->getPOC() == m_iPOCLastDisplay+1 || m_iPOCLastDisplay < 0))
       {
         // write to file
         numPicsNotYetDisplayed = numPicsNotYetDisplayed - 2;
         if (!m_reconFileName.empty()) {
-          const Window &conf = pcPicTop->getConformanceWindow();
+          const Window &conf    = pcPicTop->getConformanceWindow();
           const Window  defDisp = m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window();
-          const Bool isTff = pcPicTop->isTopField();
+          const Bool    isTff   = pcPicTop->isTopField();
 
           Bool display = true;
           if (m_decodedNoDisplaySEIEnabled) {
             SEIMessages noDisplay = getSeisByType(pcPic->getSEIs(), SEI::NO_DISPLAY );
-            const SEINoDisplay *nd = ( noDisplay.size() > 0 ) ? (SEINoDisplay*) *(noDisplay.begin()) : NULL;
-            if ((nd != NULL) && nd->m_noDisplay) {
+            const SEINoDisplay *nd = (noDisplay.size() > 0) ? (SEINoDisplay*) *(noDisplay.begin()) : NULL;
+            if (nd != NULL && nd->m_noDisplay) {
               display = false;
             }
           }
@@ -411,7 +411,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
       if (
         pcPic->getOutputMark() &&
         pcPic->getPOC() > m_iPOCLastDisplay && (
-        numPicsNotYetDisplayed >  numReorderPicsHighestTid ||
+        numPicsNotYetDisplayed > numReorderPicsHighestTid ||
         dpbFullness > maxDecPicBufferingHighestTid)
       ) {
         // write to file
@@ -459,7 +459,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
 
 /** \param pcListPic list of pictures to be written to file
  */
-Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
+Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
   if (!pcListPic || pcListPic->empty()) {
     return;
   }
@@ -535,25 +535,25 @@ Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
     {
       pcPic = *(iterPic);
 
-      if ( pcPic->getOutputMark() )
-      {
+      if (pcPic->getOutputMark()) {
         // write to file
-        if ( !m_reconFileName.empty() )
-        {
+        if (!m_reconFileName.empty()) {
           const Window &conf    = pcPic->getConformanceWindow();
           const Window  defDisp = m_respectDefDispWindow ? pcPic->getDefDisplayWindow() : Window();
 
-          m_cTVideoIOYuvReconFile.write( pcPic->getPicYuvRec(),
-                                         m_outputColourSpaceConvert,
-                                         conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
-                                         conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
-                                         conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
-                                         conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
-                                         NUM_CHROMA_FORMAT, m_bClipOutputVideoToRec709Range );
+          m_cTVideoIOYuvReconFile.write(
+            pcPic->getPicYuvRec(),
+            m_outputColourSpaceConvert,
+            conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
+            conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
+            conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
+            conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
+            NUM_CHROMA_FORMAT,
+            m_bClipOutputVideoToRec709Range
+          );
         }
 
-        if (!m_colourRemapSEIFileName.empty())
-        {
+        if (!m_colourRemapSEIFileName.empty()) {
           xOutputColourRemapPic(pcPic);
         }
 
@@ -561,8 +561,7 @@ Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
         m_iPOCLastDisplay = pcPic->getPOC();
 
         // erase non-referenced picture in the reference picture list after display
-        if ( !pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark() == true )
-        {
+        if (!pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark() == true) {
           pcPic->setReconMark(false);
 
           // mark it should be extended later
@@ -570,8 +569,7 @@ Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
         }
         pcPic->setOutputMark(false);
       }
-      if(pcPic != NULL)
-      {
+      if(pcPic != NULL) {
         pcPic->destroy();
         delete pcPic;
         pcPic = NULL;
@@ -586,13 +584,12 @@ Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
 
 /** \param nalu Input nalu to check whether its LayerId is within targetDecLayerIdSet
  */
-Bool TAppTraTop::isNaluWithinTargetDecLayerIdSet( InputNALUnit* nalu )
-{
+Bool TAppTraTop::isNaluWithinTargetDecLayerIdSet(InputNALUnit* nalu) {
   if ( m_targetDecLayerIdSet.size() == 0 ) { // By default, the set is empty, meaning all LayerIds are allowed
     return true;
   }
-  for (std::vector<Int>::iterator it = m_targetDecLayerIdSet.begin(); it != m_targetDecLayerIdSet.end(); it++) {
-    if ( nalu->m_nuhLayerId == (*it) ) {
+  for (auto it = m_targetDecLayerIdSet.begin(); it != m_targetDecLayerIdSet.end(); it++) {
+    if (nalu->m_nuhLayerId == (*it)) {
       return true;
     }
   }
@@ -673,11 +670,11 @@ static std::vector<Int> initColourRemappingInfoLut(
   }
 
   // fill missing values if necessary
-  if (iCodedPrev < (1 << bitDepth_in)+1) {
+  if (iCodedPrev < (1 << bitDepth_in) + 1) {
     Int iCodedNext  = (1 << bitDepth_in);
     Int iTargetNext = (1 << bitDepth_in) - 1;
 
-    const Int divValue =  (iCodedNext - iCodedPrev > 0)? (iCodedNext - iCodedPrev): 1;
+    const Int divValue =  (iCodedNext - iCodedPrev > 0) ? (iCodedNext - iCodedPrev) : 1;
     const Int lutValInit = (lutOffset + iTargetPrev) << nbDecimalValues;
     const Int roundValue = divValue / 2;
 
