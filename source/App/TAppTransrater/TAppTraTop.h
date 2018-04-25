@@ -31,52 +31,55 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file     TAppDecTop.h
-    \brief    Decoder application class (header)
-*/
 
-#ifndef __TAPPDECTOP__
-#define __TAPPDECTOP__
+/**
+ *  \file     TAppTraTop.h
+ *  \project  TAppTransrater
+ *  \brief    Transrater application class header
+ */
+
+
+#ifndef __TAPPTRATOP__
+#define __TAPPTRATOP__
+
 
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
 
+
 #include "TLibVideoIO/TVideoIOYuv.h"
 #include "TLibCommon/TComList.h"
 #include "TLibCommon/TComPicYuv.h"
 #include "TLibDecoder/TDecTop.h"
-#include "TAppDecCfg.h"
+#include "TAppTraCfg.h"
 
-//! \ingroup TAppDecoder
+
+//! \ingroup TAppTransrater
 //! \{
 
-// ====================================================================================================================
-// Class definition
-// ====================================================================================================================
 
-/// decoder application class
-class TAppDecTop : public TAppDecCfg
-{
+class TAppTraTop : public TAppTraCfg {
 private:
   // class interface
-  TDecTop                         m_cTDecTop;                     ///< decoder class
-  TVideoIOYuv                     m_cTVideoIOYuvReconFile;        ///< reconstruction YUV class
+  TDecTop                 m_cTDecTop;                     // decoder class
+  TVideoIOYuv             m_cTVideoIOYuvReconFile;        // reconstruction YUV class
 
   // for output control
-  Int                             m_iPOCLastDisplay;              ///< last POC in display order
-  std::ofstream                   m_seiMessageFileStream;         ///< Used for outputing SEI messages.
+  Int                     m_iPOCLastDisplay;              // last POC in display order
+  std::ofstream           m_seiMessageFileStream;         // Used for outputing SEI messages.
 
-  SEIColourRemappingInfo*         m_pcSeiColourRemappingInfoPrevious;
+  SEIColourRemappingInfo* m_pcSeiColourRemappingInfoPrevious;
 
 public:
-  TAppDecTop();
-  virtual ~TAppDecTop() {}
+  TAppTraTop();
+  virtual ~TAppTraTop() {}
 
   Void  create            (); ///< create internal members
   Void  destroy           (); ///< destroy internal members
   Void  decode            (); ///< main decoding function
   UInt  getNumberOfChecksumErrorsDetected() const { return m_cTDecTop.getNumberOfChecksumErrorsDetected(); }
+
 
 protected:
   Void  xCreateDecLib     (); ///< create internal classes
@@ -87,12 +90,14 @@ protected:
   Void  xFlushOutput      ( TComList<TComPic*>* pcListPic ); ///< flush all remaining decoded pictures to file
   Bool  isNaluWithinTargetDecLayerIdSet ( InputNALUnit* nalu ); ///< check whether given Nalu is within targetDecLayerIdSet
 
+
 private:
   Void applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& pCriSEI, const TComSPS &activeSPS);
   Void xOutputColourRemapPic(TComPic* pcPic);
 };
 
+
 //! \}
 
-#endif
 
+#endif

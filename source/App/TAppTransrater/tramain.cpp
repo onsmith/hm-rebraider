@@ -31,67 +31,70 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file     decmain.cpp
-    \brief    Decoder application main
-*/
+
+/**
+ * \file     tramain.cpp
+ * \project  TAppTransrater
+ * \brief    Transrater application main
+ */
+
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include "TAppDecTop.h"
+#include "TAppTraTop.h"
 
-//! \ingroup TAppDecoder
+
+using std::printf;
+
+
+//! \ingroup TAppTransrater
 //! \{
 
-// ====================================================================================================================
-// Main function
-// ====================================================================================================================
 
-int main(int argc, char* argv[])
-{
-  Int returnCode = EXIT_SUCCESS;
-  TAppDecTop  cTAppDecTop;
+int main(int argc, char* argv[]) {
+  // Print information
+  fprintf(stdout, "\n");
+  fprintf(stdout, "HM software: Transrater Version [%s] (including RExt)", NV_VERSION);
+  fprintf(stdout, NVM_ONOS );
+  fprintf(stdout, NVM_COMPILEDBY);
+  fprintf(stdout, NVM_BITS);
+  fprintf(stdout, "\n");
 
-  // print information
-  fprintf( stdout, "\n" );
-  fprintf( stdout, "HM software: Decoder Version [%s] (including RExt)", NV_VERSION );
-  fprintf( stdout, NVM_ONOS );
-  fprintf( stdout, NVM_COMPILEDBY );
-  fprintf( stdout, NVM_BITS );
-  fprintf( stdout, "\n" );
+  // Create transrater
+  TAppTraTop transrater;
+  transrater.create();
 
-  // create application decoder class
-  cTAppDecTop.create();
-
-  // parse configuration
-  if(!cTAppDecTop.parseCfg( argc, argv ))
-  {
-    cTAppDecTop.destroy();
-    returnCode = EXIT_FAILURE;
-    return returnCode;
+  // Parse configuration
+  if (!transrater.parseCfg(argc, argv)) {
+    transrater.destroy();
+    return EXIT_FAILURE;
   }
 
-  // starting time
+  // Capture starting time
   Double dResult;
   clock_t lBefore = clock();
 
-  // call decoding function
-  cTAppDecTop.decode();
+  // Transrate video
+  transrater.decode();
 
-  if (cTAppDecTop.getNumberOfChecksumErrorsDetected() != 0)
-  {
+  // Report errors
+  Int returnCode = EXIT_SUCCESS;
+  if (transrater.getNumberOfChecksumErrorsDetected() != 0) {
     printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
     returnCode = EXIT_FAILURE;
   }
 
-  // ending time
-  dResult = (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
+  // Capture ending time
+  dResult = (Double) (clock() - lBefore) / CLOCKS_PER_SEC;
   printf("\n Total Time: %12.3f sec.\n", dResult);
 
-  // destroy application decoder class
-  cTAppDecTop.destroy();
+  // Clean up transrater
+  transrater.destroy();
 
+  // Terminate
   return returnCode;
 }
+
 
 //! \}

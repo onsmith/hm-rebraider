@@ -31,9 +31,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file     TAppDecTop.cpp
-    \brief    Decoder application class
-*/
+
+/**
+ *  \file     TAppTraTop.cpp
+ *  \project  TAppTransrater
+ *  \brief    Transrater application class implementation
+ */
+
 
 #include <list>
 #include <vector>
@@ -41,39 +45,34 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include "TAppDecTop.h"
+#include "TAppTraTop.h"
 #include "TLibDecoder/AnnexBread.h"
 #include "TLibDecoder/NALread.h"
+
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
 #include "TLibCommon/TComCodingStatistics.h"
 #endif
 
-//! \ingroup TAppDecoder
+
+//! \ingroup TAppTransrater
 //! \{
 
-// ====================================================================================================================
-// Constructor / destructor / initialization / destroy
-// ====================================================================================================================
 
-TAppDecTop::TAppDecTop()
-: m_iPOCLastDisplay(-MAX_INT)
- ,m_pcSeiColourRemappingInfoPrevious(NULL)
-{
+TAppTraTop::TAppTraTop() :
+  m_iPOCLastDisplay(-MAX_INT),
+  m_pcSeiColourRemappingInfoPrevious(NULL) {
 }
 
-Void TAppDecTop::create()
-{
+
+Void TAppTraTop::create() {
 }
 
-Void TAppDecTop::destroy()
-{
+
+Void TAppTraTop::destroy() {
   m_bitstreamFileName.clear();
   m_reconFileName.clear();
 }
 
-// ====================================================================================================================
-// Public member functions
-// ====================================================================================================================
 
 /**
  - create internal class
@@ -83,8 +82,7 @@ Void TAppDecTop::destroy()
  - destroy internal class
  .
  */
-Void TAppDecTop::decode()
-{
+Void TAppTraTop::decode() {
   Int                 poc;
   TComList<TComPic*>* pcListPic = NULL;
 
@@ -97,11 +95,9 @@ Void TAppDecTop::decode()
 
   InputByteStream bytestream(bitstreamFile);
 
-  if (!m_outputDecodedSEIMessagesFilename.empty() && m_outputDecodedSEIMessagesFilename!="-")
-  {
+  if (!m_outputDecodedSEIMessagesFilename.empty() && m_outputDecodedSEIMessagesFilename != "-") {
     m_seiMessageFileStream.open(m_outputDecodedSEIMessagesFilename.c_str(), std::ios::out);
-    if (!m_seiMessageFileStream.is_open() || !m_seiMessageFileStream.good())
-    {
+    if (!m_seiMessageFileStream.is_open() || !m_seiMessageFileStream.good()) {
       fprintf(stderr, "\nUnable to open file `%s' for writing decoded SEI messages\n", m_outputDecodedSEIMessagesFilename.c_str());
       exit(EXIT_FAILURE);
     }
@@ -113,11 +109,9 @@ Void TAppDecTop::decode()
   m_iPOCLastDisplay += m_iSkipFrame;      // set the last displayed POC correctly for skip forward.
 
   // clear contents of colour-remap-information-SEI output file
-  if (!m_colourRemapSEIFileName.empty())
-  {
+  if (!m_colourRemapSEIFileName.empty()) {
     std::ofstream ofile(m_colourRemapSEIFileName.c_str());
-    if (!ofile.good() || !ofile.is_open())
-    {
+    if (!ofile.good() || !ofile.is_open()) {
       fprintf(stderr, "\nUnable to open file '%s' for writing colour-remap-information-SEI video\n", m_colourRemapSEIFileName.c_str());
       exit(EXIT_FAILURE);
     }
@@ -127,8 +121,7 @@ Void TAppDecTop::decode()
   Bool openedReconFile = false; // reconstruction file not yet opened. (must be performed after SPS is seen)
   Bool loopFiltered = false;
 
-  while (!!bitstreamFile)
-  {
+  while (!!bitstreamFile) {
     /* location serves to work around a design fault in the decoder, whereby
      * the process of reading a new slice that is the first slice of a new frame
      * requires the TDecTop::decode() method to be called again with the same
@@ -146,27 +139,20 @@ Void TAppDecTop::decode()
 
     // call actual decoding function
     Bool bNewPicture = false;
-    if (nalu.getBitstream().getFifo().empty())
-    {
+    if (nalu.getBitstream().getFifo().empty()) {
       /* this can happen if the following occur:
        *  - empty input file
        *  - two back-to-back start_code_prefixes
        *  - start_code_prefix immediately followed by EOF
        */
       fprintf(stderr, "Warning: Attempt to decode an empty NAL unit\n");
-    }
-    else
-    {
+    } else {
       read(nalu);
-      if( (m_iMaxTemporalLayer >= 0 && nalu.m_temporalId > m_iMaxTemporalLayer) || !isNaluWithinTargetDecLayerIdSet(&nalu)  )
-      {
+      if (m_iMaxTemporalLayer >= 0 && nalu.m_temporalId > m_iMaxTemporalLayer || !isNaluWithinTargetDecLayerIdSet(&nalu)) {
         bNewPicture = false;
-      }
-      else
-      {
+      } else {
         bNewPicture = m_cTDecTop.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
-        if (bNewPicture)
-        {
+        if (bNewPicture) {
           bitstreamFile.clear();
           /* location points to the current nalunit payload[1] due to the
            * need for the annexB parser to read three extra bytes.
@@ -187,71 +173,60 @@ Void TAppDecTop::decode()
     if ( (bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) &&
         !m_cTDecTop.getFirstSliceInSequence () )
     {
-      if (!loopFiltered || bitstreamFile)
-      {
+      if (!loopFiltered || bitstreamFile) {
         m_cTDecTop.executeLoopFilters(poc, pcListPic);
       }
       loopFiltered = (nalu.m_nalUnitType == NAL_UNIT_EOS);
-      if (nalu.m_nalUnitType == NAL_UNIT_EOS)
-      {
+      if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
         m_cTDecTop.setFirstSliceInSequence(true);
       }
-    }
-    else if ( (bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS ) &&
-              m_cTDecTop.getFirstSliceInSequence () ) 
+    } else if (
+      (bNewPicture || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) &&
+      m_cTDecTop.getFirstSliceInSequence () ) 
     {
       m_cTDecTop.setFirstSliceInPicture (true);
     }
 
-    if( pcListPic )
-    {
-      if ( (!m_reconFileName.empty()) && (!openedReconFile) )
-      {
+    if (pcListPic) {
+      if (!m_reconFileName.empty() && !openedReconFile) {
         const BitDepths &bitDepths=pcListPic->front()->getPicSym()->getSPS().getBitDepths(); // use bit depths of first reconstructed picture.
-        for (UInt channelType = 0; channelType < MAX_NUM_CHANNEL_TYPE; channelType++)
-        {
-          if (m_outputBitDepth[channelType] == 0)
-          {
-            m_outputBitDepth[channelType] = bitDepths.recon[channelType];
+        for (UInt c = 0; c < MAX_NUM_CHANNEL_TYPE; c++) {
+          if (m_outputBitDepth[c] == 0) {
+            m_outputBitDepth[c] = bitDepths.recon[c];
           }
         }
 
-        m_cTVideoIOYuvReconFile.open( m_reconFileName, true, m_outputBitDepth, m_outputBitDepth, bitDepths.recon ); // write mode
+        m_cTVideoIOYuvReconFile.open(m_reconFileName, true, m_outputBitDepth, m_outputBitDepth, bitDepths.recon); // write mode
         openedReconFile = true;
       }
       // write reconstruction to file
-      if( bNewPicture )
-      {
+      if (bNewPicture) {
         xWriteOutput( pcListPic, nalu.m_temporalId );
       }
-      if ( (bNewPicture || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA) && m_cTDecTop.getNoOutputPriorPicsFlag() )
-      {
+      if ((bNewPicture || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA) && m_cTDecTop.getNoOutputPriorPicsFlag()) {
         m_cTDecTop.checkNoOutputPriorPics( pcListPic );
         m_cTDecTop.setNoOutputPriorPicsFlag (false);
       }
-      if ( bNewPicture &&
+      if (bNewPicture &&
            (   nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL
             || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP
             || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP
             || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL
-            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP ) )
-      {
+            || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP ) ) {
         xFlushOutput( pcListPic );
       }
-      if (nalu.m_nalUnitType == NAL_UNIT_EOS)
-      {
+      if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
         xWriteOutput( pcListPic, nalu.m_temporalId );
         m_cTDecTop.setFirstSliceInPicture (false);
       }
       // write reconstruction to file -- for additional bumping as defined in C.5.2.3
-      if(!bNewPicture && nalu.m_nalUnitType >= NAL_UNIT_CODED_SLICE_TRAIL_N && nalu.m_nalUnitType <= NAL_UNIT_RESERVED_VCL31)
-      {
+      if (!bNewPicture && nalu.m_nalUnitType >= NAL_UNIT_CODED_SLICE_TRAIL_N && nalu.m_nalUnitType <= NAL_UNIT_RESERVED_VCL31) {
         xWriteOutput( pcListPic, nalu.m_temporalId );
       }
     }
   }
 
-  xFlushOutput( pcListPic );
+  xFlushOutput(pcListPic);
   // delete buffers
   m_cTDecTop.deletePicBuffer();
 
@@ -259,18 +234,14 @@ Void TAppDecTop::decode()
   xDestroyDecLib();
 }
 
-// ====================================================================================================================
-// Protected member functions
-// ====================================================================================================================
 
-Void TAppDecTop::xCreateDecLib()
-{
+Void TAppTraTop::xCreateDecLib() {
   // create decoder class
   m_cTDecTop.create();
 }
 
-Void TAppDecTop::xDestroyDecLib()
-{
+
+Void TAppTraTop::xDestroyDecLib() {
   if ( !m_reconFileName.empty() )
   {
     m_cTVideoIOYuvReconFile.close();
@@ -286,8 +257,8 @@ Void TAppDecTop::xDestroyDecLib()
   }
 }
 
-Void TAppDecTop::xInitDecLib()
-{
+
+Void TAppTraTop::xInitDecLib() {
   // initialize decoder class
   m_cTDecTop.init();
   m_cTDecTop.setDecodedPictureHashSEIEnabled(m_decodedPictureHashSEIEnabled);
@@ -297,29 +268,26 @@ Void TAppDecTop::xInitDecLib()
 #if O0043_BEST_EFFORT_DECODING
   m_cTDecTop.setForceDecodeBitDepth(m_forceDecodeBitDepth);
 #endif
-  if (!m_outputDecodedSEIMessagesFilename.empty())
-  {
+  if (!m_outputDecodedSEIMessagesFilename.empty()) {
     std::ostream &os=m_seiMessageFileStream.is_open() ? m_seiMessageFileStream : std::cout;
     m_cTDecTop.setDecodedSEIMessageOutputStream(&os);
   }
-  if (m_pcSeiColourRemappingInfoPrevious != NULL)
-  {
+  if (m_pcSeiColourRemappingInfoPrevious != NULL) {
     delete m_pcSeiColourRemappingInfoPrevious;
     m_pcSeiColourRemappingInfoPrevious = NULL;
   }
 }
 
+
 /** \param pcListPic list of pictures to be written to file
     \param tId       temporal sub-layer ID
  */
-Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
-{
-  if (pcListPic->empty())
-  {
+Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
+  if (pcListPic->empty()) {
     return;
   }
 
-  TComList<TComPic*>::iterator iterPic   = pcListPic->begin();
+  TComList<TComPic*>::iterator iterPic = pcListPic->begin();
   Int numPicsNotYetDisplayed = 0;
   Int dpbFullness = 0;
   const TComSPS* activeSPS = &(pcListPic->front()->getPicSym()->getSPS());
@@ -327,27 +295,20 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
   UInt maxDecPicBufferingHighestTid;
   UInt maxNrSublayers = activeSPS->getMaxTLayers();
 
-  if(m_iMaxTemporalLayer == -1 || m_iMaxTemporalLayer >= maxNrSublayers)
-  {
+  if (m_iMaxTemporalLayer == -1 || m_iMaxTemporalLayer >= maxNrSublayers) {
     numReorderPicsHighestTid = activeSPS->getNumReorderPics(maxNrSublayers-1);
     maxDecPicBufferingHighestTid =  activeSPS->getMaxDecPicBuffering(maxNrSublayers-1); 
-  }
-  else
-  {
+  } else {
     numReorderPicsHighestTid = activeSPS->getNumReorderPics(m_iMaxTemporalLayer);
     maxDecPicBufferingHighestTid = activeSPS->getMaxDecPicBuffering(m_iMaxTemporalLayer); 
   }
 
-  while (iterPic != pcListPic->end())
-  {
+  while (iterPic != pcListPic->end()) {
     TComPic* pcPic = *(iterPic);
-    if(pcPic->getOutputMark() && pcPic->getPOC() > m_iPOCLastDisplay)
-    {
+    if(pcPic->getOutputMark() && pcPic->getPOC() > m_iPOCLastDisplay) {
        numPicsNotYetDisplayed++;
       dpbFullness++;
-    }
-    else if(pcPic->getSlice( 0 )->isReferenced())
-    {
+    } else if (pcPic->getSlice( 0 )->isReferenced()) {
       dpbFullness++;
     }
     iterPic++;
@@ -355,19 +316,18 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
 
   iterPic = pcListPic->begin();
 
-  if (numPicsNotYetDisplayed>2)
-  {
+  if (numPicsNotYetDisplayed>2) {
     iterPic++;
   }
 
   TComPic* pcPic = *(iterPic);
-  if (numPicsNotYetDisplayed>2 && pcPic->isField()) //Field Decoding
-  {
-    TComList<TComPic*>::iterator endPic   = pcListPic->end();
+
+  // Field Decoding
+  if (numPicsNotYetDisplayed>2 && pcPic->isField()) {
+    TComList<TComPic*>::iterator endPic = pcListPic->end();
     endPic--;
     iterPic   = pcListPic->begin();
-    while (iterPic != endPic)
-    {
+    while (iterPic != endPic) {
       TComPic* pcPicTop = *(iterPic);
       iterPic++;
       TComPic* pcPicBottom = *(iterPic);
@@ -378,32 +338,33 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
           (pcPicTop->getPOC() == m_iPOCLastDisplay+1 || m_iPOCLastDisplay < 0))
       {
         // write to file
-        numPicsNotYetDisplayed = numPicsNotYetDisplayed-2;
-        if ( !m_reconFileName.empty() )
-        {
+        numPicsNotYetDisplayed = numPicsNotYetDisplayed - 2;
+        if (!m_reconFileName.empty()) {
           const Window &conf = pcPicTop->getConformanceWindow();
           const Window  defDisp = m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window();
           const Bool isTff = pcPicTop->isTopField();
 
           Bool display = true;
-          if( m_decodedNoDisplaySEIEnabled )
-          {
+          if (m_decodedNoDisplaySEIEnabled) {
             SEIMessages noDisplay = getSeisByType(pcPic->getSEIs(), SEI::NO_DISPLAY );
             const SEINoDisplay *nd = ( noDisplay.size() > 0 ) ? (SEINoDisplay*) *(noDisplay.begin()) : NULL;
-            if( (nd != NULL) && nd->m_noDisplay )
-            {
+            if ((nd != NULL) && nd->m_noDisplay) {
               display = false;
             }
           }
 
-          if (display)
-          {
-            m_cTVideoIOYuvReconFile.write( pcPicTop->getPicYuvRec(), pcPicBottom->getPicYuvRec(),
-                                           m_outputColourSpaceConvert,
-                                           conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
-                                           conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
-                                           conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
-                                           conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(), NUM_CHROMA_FORMAT, isTff );
+          if (display) {
+            m_cTVideoIOYuvReconFile.write(
+              pcPicTop->getPicYuvRec(),
+              pcPicBottom->getPicYuvRec(),
+              m_outputColourSpaceConvert,
+              conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
+              conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
+              conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
+              conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
+              NUM_CHROMA_FORMAT,
+              isTff
+            );
           }
         }
 
@@ -411,15 +372,13 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
         m_iPOCLastDisplay = pcPicBottom->getPOC();
 
         // erase non-referenced picture in the reference picture list after display
-        if ( !pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark() == true )
-        {
+        if (!pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark() == true) {
           pcPicTop->setReconMark(false);
 
           // mark it should be extended later
           pcPicTop->getPicYuvRec()->setBorderExtension( false );
         }
-        if ( !pcPicBottom->getSlice(0)->isReferenced() && pcPicBottom->getReconMark() == true )
-        {
+        if (!pcPicBottom->getSlice(0)->isReferenced() && pcPicBottom->getReconMark() == true) {
           pcPicBottom->setReconMark(false);
 
           // mark it should be extended later
@@ -429,27 +388,28 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
         pcPicBottom->setOutputMark(false);
       }
     }
-  }
-  else if (!pcPic->isField()) //Frame Decoding
-  {
+
+  // Frame Decoding
+  } else if (!pcPic->isField()) {
     iterPic = pcListPic->begin();
 
-    while (iterPic != pcListPic->end())
-    {
+    while (iterPic != pcListPic->end()) {
       pcPic = *(iterPic);
 
-      if(pcPic->getOutputMark() && pcPic->getPOC() > m_iPOCLastDisplay &&
-        (numPicsNotYetDisplayed >  numReorderPicsHighestTid || dpbFullness > maxDecPicBufferingHighestTid))
-      {
+      if (
+        pcPic->getOutputMark() &&
+        pcPic->getPOC() > m_iPOCLastDisplay && (
+        numPicsNotYetDisplayed >  numReorderPicsHighestTid ||
+        dpbFullness > maxDecPicBufferingHighestTid)
+      ) {
         // write to file
          numPicsNotYetDisplayed--;
-        if(pcPic->getSlice(0)->isReferenced() == false)
-        {
+
+        if(pcPic->getSlice(0)->isReferenced() == false) {
           dpbFullness--;
         }
 
-        if ( !m_reconFileName.empty() )
-        {
+        if (!m_reconFileName.empty()) {
           const Window &conf    = pcPic->getConformanceWindow();
           const Window  defDisp = m_respectDefDispWindow ? pcPic->getDefDisplayWindow() : Window();
 
@@ -462,8 +422,7 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
                                          NUM_CHROMA_FORMAT, m_bClipOutputVideoToRec709Range  );
         }
 
-        if (!m_colourRemapSEIFileName.empty())
-        {
+        if (!m_colourRemapSEIFileName.empty()) {
           xOutputColourRemapPic(pcPic);
         }
 
@@ -471,8 +430,7 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
         m_iPOCLastDisplay = pcPic->getPOC();
 
         // erase non-referenced picture in the reference picture list after display
-        if ( !pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark() == true )
-        {
+        if (!pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark() == true) {
           pcPic->setReconMark(false);
 
           // mark it should be extended later
@@ -486,32 +444,30 @@ Void TAppDecTop::xWriteOutput( TComList<TComPic*>* pcListPic, UInt tId )
   }
 }
 
+
 /** \param pcListPic list of pictures to be written to file
  */
-Void TAppDecTop::xFlushOutput( TComList<TComPic*>* pcListPic )
-{
-  if(!pcListPic || pcListPic->empty())
-  {
+Void TAppTraTop::xFlushOutput( TComList<TComPic*>* pcListPic ) {
+  if (!pcListPic || pcListPic->empty()) {
     return;
   }
-  TComList<TComPic*>::iterator iterPic   = pcListPic->begin();
 
-  iterPic   = pcListPic->begin();
+  TComList<TComPic*>::iterator iterPic = pcListPic->begin();
+
+  iterPic = pcListPic->begin();
   TComPic* pcPic = *(iterPic);
 
-  if (pcPic->isField()) //Field Decoding
-  {
-    TComList<TComPic*>::iterator endPic   = pcListPic->end();
+  // Field Decoding
+  if (pcPic->isField()) {
+    TComList<TComPic*>::iterator endPic = pcListPic->end();
     endPic--;
     TComPic *pcPicTop, *pcPicBottom = NULL;
-    while (iterPic != endPic)
-    {
+    while (iterPic != endPic) {
       pcPicTop = *(iterPic);
       iterPic++;
       pcPicBottom = *(iterPic);
 
-      if ( pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() && !(pcPicTop->getPOC()%2) && (pcPicBottom->getPOC() == pcPicTop->getPOC()+1) )
-      {
+      if (pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() && !(pcPicTop->getPOC()%2) && (pcPicBottom->getPOC() == pcPicTop->getPOC()+1)) {
         // write to file
         if ( !m_reconFileName.empty() )
         {
@@ -530,8 +486,7 @@ Void TAppDecTop::xFlushOutput( TComList<TComPic*>* pcListPic )
         m_iPOCLastDisplay = pcPicBottom->getPOC();
 
         // erase non-referenced picture in the reference picture list after display
-        if ( !pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark() == true )
-        {
+        if ( !pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark() == true ) {
           pcPicTop->setReconMark(false);
 
           // mark it should be extended later
@@ -616,52 +571,46 @@ Void TAppDecTop::xFlushOutput( TComList<TComPic*>* pcListPic )
   m_iPOCLastDisplay = -MAX_INT;
 }
 
+
 /** \param nalu Input nalu to check whether its LayerId is within targetDecLayerIdSet
  */
-Bool TAppDecTop::isNaluWithinTargetDecLayerIdSet( InputNALUnit* nalu )
+Bool TAppTraTop::isNaluWithinTargetDecLayerIdSet( InputNALUnit* nalu )
 {
-  if ( m_targetDecLayerIdSet.size() == 0 ) // By default, the set is empty, meaning all LayerIds are allowed
-  {
+  if ( m_targetDecLayerIdSet.size() == 0 ) { // By default, the set is empty, meaning all LayerIds are allowed
     return true;
   }
-  for (std::vector<Int>::iterator it = m_targetDecLayerIdSet.begin(); it != m_targetDecLayerIdSet.end(); it++)
-  {
-    if ( nalu->m_nuhLayerId == (*it) )
-    {
+  for (std::vector<Int>::iterator it = m_targetDecLayerIdSet.begin(); it != m_targetDecLayerIdSet.end(); it++) {
+    if ( nalu->m_nuhLayerId == (*it) ) {
       return true;
     }
   }
   return false;
 }
 
-Void TAppDecTop::xOutputColourRemapPic(TComPic* pcPic)
-{
+
+Void TAppTraTop::xOutputColourRemapPic(TComPic* pcPic) {
   const TComSPS &sps=pcPic->getPicSym()->getSPS();
   SEIMessages colourRemappingInfo = getSeisByType(pcPic->getSEIs(), SEI::COLOUR_REMAPPING_INFO );
   SEIColourRemappingInfo *seiColourRemappingInfo = ( colourRemappingInfo.size() > 0 ) ? (SEIColourRemappingInfo*) *(colourRemappingInfo.begin()) : NULL;
 
-  if (colourRemappingInfo.size() > 1)
-  {
+  if (colourRemappingInfo.size() > 1) {
     printf ("Warning: Got multiple Colour Remapping Information SEI messages. Using first.");
   }
-  if (seiColourRemappingInfo)
-  {
+
+  if (seiColourRemappingInfo) {
     applyColourRemapping(*pcPic->getPicYuvRec(), *seiColourRemappingInfo, sps);
 
     // save the last CRI SEI received
-    if (m_pcSeiColourRemappingInfoPrevious == NULL)
-    {
+    if (m_pcSeiColourRemappingInfoPrevious == NULL) {
       m_pcSeiColourRemappingInfoPrevious = new SEIColourRemappingInfo();
     }
     m_pcSeiColourRemappingInfoPrevious->copyFrom(*seiColourRemappingInfo);
-  }
-  else  // using the last CRI SEI received
-  {
+
+  // using the last CRI SEI received
+  } else {
     // TODO: prevent persistence of CRI SEI across C(L)VS.
-    if (m_pcSeiColourRemappingInfoPrevious != NULL)
-    {
-      if (m_pcSeiColourRemappingInfoPrevious->m_colourRemapPersistenceFlag == false)
-      {
+    if (m_pcSeiColourRemappingInfoPrevious != NULL) {
+      if (m_pcSeiColourRemappingInfoPrevious->m_colourRemapPersistenceFlag == false) {
         printf("Warning No SEI-CRI message is present for the current picture, persistence of the CRI is not managed\n");
       }
       applyColourRemapping(*pcPic->getPicYuvRec(), *m_pcSeiColourRemappingInfoPrevious, sps);
@@ -669,16 +618,17 @@ Void TAppDecTop::xOutputColourRemapPic(TComPic* pcPic)
   }
 }
 
+
 // compute lut from SEI
 // use at lutPoints points aligned on a power of 2 value
 // SEI Lut must be in ascending values of coded Values
-static std::vector<Int>
-initColourRemappingInfoLut(const Int                                          bitDepth_in,     // bit-depth of the input values of the LUT
-                           const Int                                          nbDecimalValues, // Position of the fixed point
-                           const std::vector<SEIColourRemappingInfo::CRIlut> &lut,
-                           const Int                                          maxValue, // maximum output value
-                           const Int                                          lutOffset)
-{
+static std::vector<Int> initColourRemappingInfoLut(
+  const Int                                          bitDepth_in,     // bit-depth of the input values of the LUT
+  const Int                                          nbDecimalValues, // Position of the fixed point
+  const std::vector<SEIColourRemappingInfo::CRIlut> &lut,
+  const Int                                          maxValue, // maximum output value
+  const Int                                          lutOffset
+) {
   const Int lutPoints = (1 << bitDepth_in) + 1 ;
   std::vector<Int> retLut(lutPoints);
 
@@ -692,8 +642,7 @@ initColourRemappingInfoLut(const Int                                          bi
 
   Int iValue = 0;
 
-  for ( Int iPivot=startPivot ; iPivot < (Int)lut.size(); iPivot++ )
-  {
+  for (Int iPivot=startPivot; iPivot < (Int)lut.size(); iPivot++) {
     Int iCodedNext  = lut[iPivot].codedValue;
     Int iTargetNext = lut[iPivot].targetValue;
 
@@ -703,18 +652,16 @@ initColourRemappingInfoLut(const Int                                          bi
     const Int divValue =  (iCodedNext - iCodedPrev > 0)? (iCodedNext - iCodedPrev): 1;
     const Int lutValInit = (lutOffset + iTargetPrev) << nbDecimalValues;
     const Int roundValue = divValue / 2;
-    for ( ; iValue<iCodedNext_bitDepth; iValue++ )
-    {
-      Int value = iValue;
-      Int interpol = ((((value-iCodedPrev) * (iTargetNext - iTargetPrev)) << nbDecimalValues) + roundValue) / divValue;               
+    for (; iValue < iCodedNext_bitDepth; iValue++) {
+      Int interpol = ((((iValue - iCodedPrev) * (iTargetNext - iTargetPrev)) << nbDecimalValues) + roundValue) / divValue;
       retLut[iValue]  = std::min(lutValInit + interpol , maxValueFixedPoint);
     }
     iCodedPrev  = iCodedNext;
     iTargetPrev = iTargetNext;
   }
+
   // fill missing values if necessary
-  if(iCodedPrev < (1 << bitDepth_in)+1)
-  {
+  if (iCodedPrev < (1 << bitDepth_in)+1) {
     Int iCodedNext  = (1 << bitDepth_in);
     Int iTargetNext = (1 << bitDepth_in) - 1;
 
@@ -722,8 +669,7 @@ initColourRemappingInfoLut(const Int                                          bi
     const Int lutValInit = (lutOffset + iTargetPrev) << nbDecimalValues;
     const Int roundValue = divValue / 2;
 
-    for ( ; iValue<=iCodedNext; iValue++ )
-    {
+    for (; iValue <= iCodedNext; iValue++) {
       Int value = iValue;
       Int interpol = ((((value-iCodedPrev) * (iTargetNext - iTargetPrev)) << nbDecimalValues) + roundValue) / divValue; 
       retLut[iValue]  = std::min(lutValInit + interpol , maxValueFixedPoint);
@@ -732,15 +678,15 @@ initColourRemappingInfoLut(const Int                                          bi
   return retLut;
 }
 
-static Void
-initColourRemappingInfoLuts(std::vector<Int>      (&preLut)[3],
-                            std::vector<Int>      (&postLut)[3],
-                            SEIColourRemappingInfo &pCriSEI,
-                            const Int               maxBitDepth)
-{
+
+static Void initColourRemappingInfoLuts(
+  std::vector<Int>      (&preLut)[3],
+  std::vector<Int>      (&postLut)[3],
+  SEIColourRemappingInfo &pCriSEI,
+  const Int               maxBitDepth
+) {
   Int internalBitDepth = pCriSEI.m_colourRemapBitDepth;
-  for ( Int c=0 ; c<3 ; c++ )
-  {
+  for (Int c = 0; c < 3; c++) {
     std::sort(pCriSEI.m_preLut[c].begin(), pCriSEI.m_preLut[c].end()); // ensure preLut is ordered in ascending values of codedValues   
     preLut[c] = initColourRemappingInfoLut(pCriSEI.m_colourRemapInputBitDepth, maxBitDepth - pCriSEI.m_colourRemapInputBitDepth, pCriSEI.m_preLut[c], ((1 << internalBitDepth) - 1), 0); //Fill preLut
 
@@ -749,56 +695,73 @@ initColourRemappingInfoLuts(std::vector<Int>      (&preLut)[3],
   }
 }
 
+
 // apply lut.
 // Input lut values are aligned on power of 2 boundaries
-static Int
-applyColourRemappingInfoLut1D(Int inVal, const std::vector<Int> &lut, const Int inValPrecisionBits)
-{
+static Int applyColourRemappingInfoLut1D(
+        Int               inVal,
+  const std::vector<Int> &lut,
+  const Int               inValPrecisionBits
+) {
   const Int roundValue = (inValPrecisionBits)? 1 << (inValPrecisionBits - 1): 0;
   inVal = std::min(std::max(0, inVal), (Int)(((lut.size()-1) << inValPrecisionBits)));
   Int index  = (Int) std::min((inVal >> inValPrecisionBits), (Int)(lut.size()-2));
   Int outVal = (( inVal - (index<<inValPrecisionBits) ) * (lut[index+1] - lut[index]) + roundValue) >> inValPrecisionBits;
-  outVal +=  lut[index] ;
+  outVal +=  lut[index];
 
   return outVal;
-}  
+}
 
-static Int
-applyColourRemappingInfoMatrix(const Int (&colourRemapCoeffs)[3], const Int postOffsetShift, const Int p0, const Int p1, const Int p2, const Int offset)
-{
-  Int YUVMat = (colourRemapCoeffs[0]* p0 + colourRemapCoeffs[1]* p1 + colourRemapCoeffs[2]* p2  + offset) >> postOffsetShift;
+
+static Int applyColourRemappingInfoMatrix(
+  const Int (&colourRemapCoeffs)[3],
+  const Int postOffsetShift,
+  const Int p0,
+  const Int p1,
+  const Int p2,
+  const Int offset
+) {
+  Int YUVMat = (
+    colourRemapCoeffs[0] * p0 +
+    colourRemapCoeffs[1] * p1 +
+    colourRemapCoeffs[2] * p2 +
+    offset
+  ) >> postOffsetShift;
   return YUVMat;
 }
 
-static Void
-setColourRemappingInfoMatrixOffset(Int (&matrixOffset)[3], Int offset0, Int offset1, Int offset2)
-{
+
+static Void setColourRemappingInfoMatrixOffset(
+  Int (&matrixOffset)[3],
+  Int offset0,
+  Int offset1,
+  Int offset2
+) {
   matrixOffset[0] = offset0;
   matrixOffset[1] = offset1;
   matrixOffset[2] = offset2;
 }
 
-static Void
-setColourRemappingInfoMatrixOffsets(      Int  (&matrixInputOffset)[3],
-                                          Int  (&matrixOutputOffset)[3],
-                                    const Int  bitDepth,
-                                    const Bool crInputFullRangeFlag,
-                                    const Int  crInputMatrixCoefficients,
-                                    const Bool crFullRangeFlag,
-                                    const Int  crMatrixCoefficients)
-{
+
+static Void setColourRemappingInfoMatrixOffsets(
+        Int  (&matrixInputOffset)[3],
+        Int  (&matrixOutputOffset)[3],
+  const Int  bitDepth,
+  const Bool crInputFullRangeFlag,
+  const Int  crInputMatrixCoefficients,
+  const Bool crFullRangeFlag,
+  const Int  crMatrixCoefficients
+) {
   // set static matrix offsets
   Int crInputOffsetLuma = (crInputFullRangeFlag)? 0:-(16 << (bitDepth-8));
   Int crOffsetLuma = (crFullRangeFlag)? 0:(16 << (bitDepth-8));
   Int crInputOffsetChroma = 0;
   Int crOffsetChroma = 0;
 
-  switch(crInputMatrixCoefficients)
-  {
+  switch (crInputMatrixCoefficients) {
     case MATRIX_COEFFICIENTS_RGB:
       crInputOffsetChroma = 0;
-      if(!crInputFullRangeFlag)
-      {
+      if (!crInputFullRangeFlag) {
         fprintf(stderr, "WARNING: crInputMatrixCoefficients set to MATRIX_COEFFICIENTS_RGB and crInputFullRangeFlag not set\n");
         crInputOffsetLuma = 0;
       }
@@ -812,12 +775,10 @@ setColourRemappingInfoMatrixOffsets(      Int  (&matrixInputOffset)[3],
       fprintf(stderr, "WARNING: crInputMatrixCoefficients set to undefined value: %d\n", crInputMatrixCoefficients);
   }
 
-  switch(crMatrixCoefficients)
-  {
+  switch (crMatrixCoefficients) {
     case MATRIX_COEFFICIENTS_RGB:
       crOffsetChroma = 0;
-      if(!crFullRangeFlag)
-      {
+      if (!crFullRangeFlag) {
         fprintf(stderr, "WARNING: crMatrixCoefficients set to MATRIX_COEFFICIENTS_RGB and crInputFullRangeFlag not set\n");
         crOffsetLuma = 0;
       }
@@ -835,13 +796,12 @@ setColourRemappingInfoMatrixOffsets(      Int  (&matrixInputOffset)[3],
   setColourRemappingInfoMatrixOffset(matrixOutputOffset, crOffsetLuma, crOffsetChroma, crOffsetChroma);
 }
 
-Void TAppDecTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& criSEI, const TComSPS &activeSPS)
-{  
+
+Void TAppTraTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& criSEI, const TComSPS &activeSPS) {
   const Int maxBitDepth = 16;
 
   // create colour remapped picture
-  if( !criSEI.m_colourRemapCancelFlag && pic.getChromaFormat()!=CHROMA_400) // 4:0:0 not supported.
-  {
+  if (!criSEI.m_colourRemapCancelFlag && pic.getChromaFormat() != CHROMA_400) { // 4:0:0 not supported.
     const Int          iHeight         = pic.getHeight(COMPONENT_Y);
     const Int          iWidth          = pic.getWidth(COMPONENT_Y);
     const ChromaFormat chromaFormatIDC = pic.getChromaFormat();
@@ -879,14 +839,11 @@ Void TAppDecTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingI
     const Int matrixRound = 1 << (postOffsetShift - 1);
     const Int postLutInputPrecision = (maxBitDepth - criSEI.m_colourRemapBitDepth);
 
-    if ( ! criSEI.m_colourRemapVideoSignalInfoPresentFlag ) // setting default
-    {
+    if (!criSEI.m_colourRemapVideoSignalInfoPresentFlag) { // setting default
       setColourRemappingInfoMatrixOffsets(matrixInputOffset, matrixOutputOffset, maxBitDepth,
           activeSPS.getVuiParameters()->getVideoFullRangeFlag(), activeSPS.getVuiParameters()->getMatrixCoefficients(),
           activeSPS.getVuiParameters()->getVideoFullRangeFlag(), activeSPS.getVuiParameters()->getMatrixCoefficients());
-    }
-    else
-    {
+    } else {
       setColourRemappingInfoMatrixOffsets(matrixInputOffset, matrixOutputOffset, maxBitDepth,
           activeSPS.getVuiParameters()->getVideoFullRangeFlag(), activeSPS.getVuiParameters()->getMatrixCoefficients(),
           criSEI.m_colourRemapFullRangeFlag, criSEI.m_colourRemapMatrixCoefficients);
@@ -912,10 +869,8 @@ Void TAppDecTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingI
     const Int hs = pic.getComponentScaleX(ComponentID(COMPONENT_Cb));
     const Int maxOutputValue = (1 << bitDepth) - 1;
 
-    for( Int y = 0; y < iHeight; y++ )
-    {
-      for( Int x = 0; x < iWidth; x++ )
-      {
+    for (Int y = 0; y < iHeight; y++) {
+      for (Int x = 0; x < iWidth; x++) {
         const Int xc = (x>>hs);
         Bool computeChroma = b444 || ((b422 || !(y&1)) && !(x&1));
 
@@ -927,8 +882,7 @@ Void TAppDecTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingI
         Int YUVLutB_0 = applyColourRemappingInfoLut1D(YUVMat_0, postLut[0], postLutInputPrecision);
         YUVOut[COMPONENT_Y][x] = std::min(maxOutputValue, (YUVLutB_0 + scaleOut_round) >> scaleShiftOut_neg);
 
-        if( computeChroma )
-        {
+        if (computeChroma) {
           Int YUVMat_1 = applyColourRemappingInfoMatrix(criSEI.m_colourRemapCoeffs[1], postOffsetShift, YUVPre_0, YUVPre_1, YUVPre_2, matrixOutputOffset[1]);
           Int YUVLutB_1 = applyColourRemappingInfoLut1D(YUVMat_1, postLut[1], postLutInputPrecision);
           YUVOut[COMPONENT_Cb][xc] = std::min(maxOutputValue, (YUVLutB_1 + scaleOut_round) >> scaleShiftOut_neg);
@@ -941,18 +895,18 @@ Void TAppDecTop::applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingI
 
       YUVIn[COMPONENT_Y]  += iStrideIn;
       YUVOut[COMPONENT_Y] += iStrideOut;
-      if( !(b420 && !(y&1)) )
-      {
+      if (!(b420 && !(y&1))) {
          YUVIn[COMPONENT_Cb]  += iCStrideIn;
          YUVIn[COMPONENT_Cr]  += iCStrideIn;
          YUVOut[COMPONENT_Cb] += iCStrideOut;
          YUVOut[COMPONENT_Cr] += iCStrideOut;
       }
     }
-    //Write remapped picture in display order
-    picYuvColourRemapped.dump( m_colourRemapSEIFileName, bitDepthsCriFile, true );
+    // Write remapped picture in display order
+    picYuvColourRemapped.dump(m_colourRemapSEIFileName, bitDepthsCriFile, true);
     picYuvColourRemapped.destroy();
   }
 }
+
 
 //! \}

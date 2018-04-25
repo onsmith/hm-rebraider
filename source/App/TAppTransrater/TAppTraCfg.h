@@ -31,87 +31,71 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file     TAppDecCfg.h
-    \brief    Decoder configuration class (header)
-*/
 
-#ifndef __TAPPDECCFG__
-#define __TAPPDECCFG__
+/**
+ *  \file     TAppTraCfg.h
+ *  \project  TAppTransrater
+ *  \brief    Transrater configuration class header
+ */
+
+
+#ifndef __TAPPTRACFG__
+#define __TAPPTRACFG__
+
 
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
 
+
 #include "TLibCommon/CommonDef.h"
 #include <vector>
 
-//! \ingroup TAppDecoder
+
+//! \ingroup TAppTransrater
 //! \{
 
-// ====================================================================================================================
-// Class definition
-// ====================================================================================================================
 
-/// Decoder configuration class
-class TAppDecCfg
-{
+class TAppTraCfg {
 protected:
-  std::string   m_bitstreamFileName;                    ///< input bitstream file name
-  std::string   m_reconFileName;                        ///< output reconstruction file name
-  Int           m_iSkipFrame;                           ///< counter for frames prior to the random access point to skip
-  Int           m_outputBitDepth[MAX_NUM_CHANNEL_TYPE]; ///< bit depth used for writing output
+  std::string                m_bitstreamFileName;                    // input bitstream file name
+  std::string                m_reconFileName;                        // output reconstruction file name
+  Int                        m_iSkipFrame;                           // counter for frames prior to the random access point to skip
+  Int                        m_outputBitDepth[MAX_NUM_CHANNEL_TYPE]; // bit depth used for writing output
   InputColourSpaceConversion m_outputColourSpaceConvert;
 
-  Int           m_iMaxTemporalLayer;                  ///< maximum temporal layer to be decoded
-  Int           m_decodedPictureHashSEIEnabled;       ///< Checksum(3)/CRC(2)/MD5(1)/disable(0) acting on decoded picture hash SEI message
-  Bool          m_decodedNoDisplaySEIEnabled;         ///< Enable(true)/disable(false) writing only pictures that get displayed based on the no display SEI message
-  std::string   m_colourRemapSEIFileName;             ///< output Colour Remapping file name
-  std::vector<Int> m_targetDecLayerIdSet;             ///< set of LayerIds to be included in the sub-bitstream extraction process.
-  Int           m_respectDefDispWindow;               ///< Only output content inside the default display window
-#if O0043_BEST_EFFORT_DECODING
-  UInt          m_forceDecodeBitDepth;                ///< if non-zero, force the bit depth at the decoder (best effort decoding)
-#endif
-  std::string   m_outputDecodedSEIMessagesFilename;   ///< filename to output decoded SEI messages to. If '-', then use stdout. If empty, do not output details.
-  Bool          m_bClipOutputVideoToRec709Range;      ///< If true, clip the output video to the Rec 709 range on saving.
+  Int                        m_iMaxTemporalLayer;                    // maximum temporal layer to be decoded
+  Int                        m_decodedPictureHashSEIEnabled;         // Checksum(3)/CRC(2)/MD5(1)/disable(0) acting on decoded picture hash SEI message
+  Bool                       m_decodedNoDisplaySEIEnabled;           // Enable(true)/disable(false) writing only pictures that get displayed based on the no display SEI message
+  std::string                m_colourRemapSEIFileName;               // output Colour Remapping file name
+  std::vector<Int>           m_targetDecLayerIdSet;                  // set of LayerIds to be included in the sub-bitstream extraction process.
+  Int                        m_respectDefDispWindow;                 // Only output content inside the default display window
+
+  std::string                m_outputDecodedSEIMessagesFilename;     // filename to output decoded SEI messages to. If '-', then use stdout. If empty, do not output details.
+  Bool                       m_bClipOutputVideoToRec709Range;        // If true, clip the output video to the Rec 709 range on saving.
+
 #if MCTS_ENC_CHECK
-  Bool          m_tmctsCheck;
+  Bool                       m_tmctsCheck;
 #endif
+
+#if O0043_BEST_EFFORT_DECODING
+  UInt                       m_forceDecodeBitDepth;                  // if non-zero, force the bit depth at the decoder (best effort decoding)
+#endif
+
 
 public:
-  TAppDecCfg()
-  : m_bitstreamFileName()
-  , m_reconFileName()
-  , m_iSkipFrame(0)
-  // m_outputBitDepth array initialised below
-  , m_outputColourSpaceConvert(IPCOLOURSPACE_UNCHANGED)
-  , m_iMaxTemporalLayer(-1)
-  , m_decodedPictureHashSEIEnabled(0)
-  , m_decodedNoDisplaySEIEnabled(false)
-  , m_colourRemapSEIFileName()
-  , m_targetDecLayerIdSet()
-  , m_respectDefDispWindow(0)
-#if O0043_BEST_EFFORT_DECODING
-  , m_forceDecodeBitDepth(0)
-#endif
-  , m_outputDecodedSEIMessagesFilename()
-  , m_bClipOutputVideoToRec709Range(false)
-#if MCTS_ENC_CHECK
-  , m_tmctsCheck(false)
-#endif
-  {
-    for (UInt channelTypeIndex = 0; channelTypeIndex < MAX_NUM_CHANNEL_TYPE; channelTypeIndex++)
-    {
-      m_outputBitDepth[channelTypeIndex] = 0;
-    }
-  }
+  // Default constructor
+  TAppTraCfg();
 
-  virtual ~TAppDecCfg() {}
+  // Virtual destructor
+  virtual ~TAppTraCfg();
 
-  Bool  parseCfg        ( Int argc, TChar* argv[] );   ///< initialize option class from configuration
+  // Reads configurations options from command line arguments
+  Bool parseCfg(Int argc, TChar* argv[]);
 };
+
 
 //! \}
 
+
 #endif
-
-
