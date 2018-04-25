@@ -172,13 +172,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppDecoder\decmain.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDecoder\TAppDecCfg.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDecoder\TAppDecTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraCfg.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppDecoder\TAppDecCfg.h" />
-    <ClInclude Include="..\..\source\App\TAppDecoder\TAppDecTop.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraTop.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="TAppCommon_vc2015.vcxproj">

@@ -11,21 +11,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppDecoder\decmain.cpp">
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraTop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\App\TAppDecoder\TAppDecCfg.cpp">
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraCfg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\App\TAppDecoder\TAppDecTop.cpp">
+    <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppDecoder\TAppDecCfg.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraTop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\App\TAppDecoder\TAppDecTop.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
