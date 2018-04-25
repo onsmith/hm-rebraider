@@ -58,12 +58,25 @@
 //! \{
 
 
+/**
+ * Default constructor
+ */
 TAppTraTop::TAppTraTop() :
   m_iPOCLastDisplay(-MAX_INT),
   m_pcSeiColourRemappingInfoPrevious(NULL) {
 }
 
 
+/**
+ * Destructor
+ */
+TAppTraTop::~TAppTraTop() {
+}
+
+
+/**
+ * Destructor
+ */
 Void TAppTraTop::create() {
 }
 
@@ -71,6 +84,14 @@ Void TAppTraTop::create() {
 Void TAppTraTop::destroy() {
   m_bitstreamFileName.clear();
   m_reconFileName.clear();
+}
+
+
+/**
+ *
+ */
+UInt TAppTraTop::getNumberOfChecksumErrorsDetected() const {
+  return m_cTDecTop.getNumberOfChecksumErrorsDetected();
 }
 
 

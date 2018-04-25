@@ -62,33 +62,48 @@
 class TAppTraTop : public TAppTraCfg {
 private:
   // class interface
-  TDecTop                 m_cTDecTop;                     // decoder class
-  TVideoIOYuv             m_cTVideoIOYuvReconFile;        // reconstruction YUV class
+  TDecTop                 m_cTDecTop;              // decoder class
+  TVideoIOYuv             m_cTVideoIOYuvReconFile; // reconstruction YUV class
 
-  // for output control
+  // output control
   Int                     m_iPOCLastDisplay;              // last POC in display order
   std::ofstream           m_seiMessageFileStream;         // Used for outputing SEI messages.
 
   SEIColourRemappingInfo* m_pcSeiColourRemappingInfoPrevious;
 
 public:
+  // Default constructor
   TAppTraTop();
-  virtual ~TAppTraTop() {}
 
-  Void  create            (); ///< create internal members
-  Void  destroy           (); ///< destroy internal members
-  Void  decode            (); ///< main decoding function
-  UInt  getNumberOfChecksumErrorsDetected() const { return m_cTDecTop.getNumberOfChecksumErrorsDetected(); }
+  // Destructor
+  virtual ~TAppTraTop();
+
+  // Initializes internal object resources
+  Void create();
+
+  // Destroys internal object resources
+  Void destroy();
+
+  // Main decoding function
+  Void decode();
+
+  // Retrieves the number of decoding errors encountered
+  UInt getNumberOfChecksumErrorsDetected() const;
 
 
 protected:
-  Void  xCreateDecLib     (); ///< create internal classes
-  Void  xDestroyDecLib    (); ///< destroy internal classes
-  Void  xInitDecLib       (); ///< initialize decoder class
+  // Creates internal decoder object
+  Void xCreateDecLib();
 
-  Void  xWriteOutput      ( TComList<TComPic*>* pcListPic , UInt tId); ///< write YUV to file
-  Void  xFlushOutput      ( TComList<TComPic*>* pcListPic ); ///< flush all remaining decoded pictures to file
-  Bool  isNaluWithinTargetDecLayerIdSet ( InputNALUnit* nalu ); ///< check whether given Nalu is within targetDecLayerIdSet
+  // Initializes internal decoder object
+  Void xInitDecLib();
+  
+  // Destroys internal decoder object
+  Void xDestroyDecLib();
+
+  Void xWriteOutput(TComList<TComPic*>* pcListPic , UInt tId); ///< write YUV to file
+  Void xFlushOutput(TComList<TComPic*>* pcListPic);           ///< flush all remaining decoded pictures to file
+  Bool isNaluWithinTargetDecLayerIdSet( InputNALUnit* nalu);        ///< check whether given Nalu is within targetDecLayerIdSet
 
 
 private:
