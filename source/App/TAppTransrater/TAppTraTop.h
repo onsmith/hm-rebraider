@@ -83,8 +83,8 @@ public:
   // Destructor
   virtual ~TAppTraTop();
 
-  // Main decoding function
-  Void decode();
+  // Main transrating function
+  Void transrate();
 
   // Retrieves the number of decoding errors encountered
   UInt getNumberOfChecksumErrorsDetected() const;
@@ -100,8 +100,11 @@ protected:
   Void xWriteOutput(TComList<TComPic*>* pcListPic , UInt tId); //< write YUV to file
   Void xFlushOutput(TComList<TComPic*>* pcListPic);            //< flush all remaining decoded pictures to file
 
-  // Checks whether given Nalu is within targetDecLayerIdSet
-  Bool isInTargetLayerIdSet(Int layerId) const;
+  // Checks whether a given layerId should be decoded
+  Bool xWillDecodeLayer(Int layerId) const;
+
+  // Checks whether all layerIds should be decoded
+  Bool xWillDecodeAllLayers() const;
 
   // Opens an output stream for reporting decoded SEI messages.
   Void xOpenSEIOutputStream();

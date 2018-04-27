@@ -91,9 +91,8 @@ UInt TAppTraTop::getNumberOfChecksumErrorsDetected() const {
  - until the end of the bitstream, call decoding function in TDecTop class
  - delete allocated buffers
  - destroy internal class
- .
  */
-Void TAppTraTop::decode() {
+Void TAppTraTop::transrate() {
   Int                 poc;              // picture order count
   TComList<TComPic*>* pcListPic = NULL; // picture buffer
 
@@ -179,7 +178,7 @@ Void TAppTraTop::decode() {
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
 
-      if (isInTargetTemporalIdSet && isInTargetLayerIdSet(nalu.m_nuhLayerId)) {
+      if (isInTargetTemporalIdSet && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound =
           m_decoder.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
       }
@@ -358,58 +357,66 @@ Void TAppTraTop::xCreateDecoder() {
 }
 
 
-/** \param pcListPic list of pictures to be written to file
-    \param tId       temporal sub-layer ID
+/**
+ * Writes completed, reconstructed pictures to output file
+ *
+ * \param pcListPic list of pictures to be written to file
+ * \param tId       temporal sub-layer ID
  */
 Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
   if (pcListPic->empty()) {
     return;
   }
 
-  TComList<TComPic*>::iterator iterPic = pcListPic->begin();
-  Int numPicsNotYetDisplayed = 0;
-  Int dpbFullness = 0;
-  const TComSPS* activeSPS = &(pcListPic->front()->getPicSym()->getSPS());
-  UInt numReorderPicsHighestTid;
-  UInt maxDecPicBufferingHighestTid;
-  UInt maxNrSublayers = activeSPS->getMaxTLayers();
+  const TComSPS* activeSPS               = &(pcListPic->front()->getPicSym()->getSPS());
+        UInt     numReorderPicsHighestTid;
+        UInt     maxDecPicBufferingHighestTid;
+        UInt     maxNrSublayers          = activeSPS->getMaxTLayers();
 
   if (m_iMaxTemporalLayer == -1 || m_iMaxTemporalLayer >= maxNrSublayers) {
-    numReorderPicsHighestTid = activeSPS->getNumReorderPics(maxNrSublayers-1);
-    maxDecPicBufferingHighestTid =  activeSPS->getMaxDecPicBuffering(maxNrSublayers-1); 
+    numReorderPicsHighestTid     = activeSPS->getNumReorderPics(maxNrSublayers - 1);
+    maxDecPicBufferingHighestTid = activeSPS->getMaxDecPicBuffering(maxNrSublayers - 1); 
   } else {
-    numReorderPicsHighestTid = activeSPS->getNumReorderPics(m_iMaxTemporalLayer);
+    numReorderPicsHighestTid     = activeSPS->getNumReorderPics(m_iMaxTemporalLayer);
     maxDecPicBufferingHighestTid = activeSPS->getMaxDecPicBuffering(m_iMaxTemporalLayer); 
   }
 
-  while (iterPic != pcListPic->end()) {
-    TComPic* pcPic = *(iterPic);
-    if(pcPic->getOutputMark() && pcPic->getPOC() > m_iPOCLastDisplay) {
-       numPicsNotYetDisplayed++;
+  // TODO: Write description for this variable
+  Int dpbFullness = 0;
+
+  // TODO: Write description for this variable
+  Int numPicsNotYetDisplayed = 0;
+
+  // Loop through picture buffer to calculate values of dpbFullness and
+  //   numPicsNotYetDisplayed
+  for (auto p = pcListPic->begin(); p != pcListPic->end(); p++) {
+    TComPic* pic = *p;
+    if (pic->getOutputMark() && pic->getPOC() > m_iPOCLastDisplay) {
+      numPicsNotYetDisplayed++;
       dpbFullness++;
-    } else if (pcPic->getSlice(0)->isReferenced()) {
+    } else if (pic->getSlice(0)->isReferenced()) {
       dpbFullness++;
     }
-    iterPic++;
   }
 
-  iterPic = pcListPic->begin();
+  auto iterPic = pcListPic->begin();
 
   if (numPicsNotYetDisplayed > 2) {
     iterPic++;
   }
 
-  TComPic* pcPic = *(iterPic);
+  TComPic* pcPic = *iterPic;
 
   // Field Decoding
-  if (numPicsNotYetDisplayed>2 && pcPic->isField()) {
-    TComList<TComPic*>::iterator endPic = pcListPic->end();
+  if (numPicsNotYetDisplayed > 2 && pcPic->isField()) {
+    auto endPic = pcListPic->end();
     endPic--;
     iterPic = pcListPic->begin();
+
     while (iterPic != endPic) {
-      TComPic* pcPicTop = *(iterPic);
+      TComPic* pcPicTop = *iterPic;
       iterPic++;
-      TComPic* pcPicBottom = *(iterPic);
+      TComPic* pcPicBottom = *iterPic;
 
       if ( pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() &&
           (numPicsNotYetDisplayed >  numReorderPicsHighestTid || dpbFullness > maxDecPicBufferingHighestTid) &&
@@ -425,7 +432,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
 
           Bool display = true;
           if (m_decodedNoDisplaySEIEnabled) {
-            SEIMessages noDisplay = getSeisByType(pcPic->getSEIs(), SEI::NO_DISPLAY );
+            SEIMessages noDisplay = getSeisByType(pcPic->getSEIs(), SEI::NO_DISPLAY);
             const SEINoDisplay *nd = (noDisplay.size() > 0) ? (SEINoDisplay*) *(noDisplay.begin()) : NULL;
             if (nd != NULL && nd->m_noDisplay) {
               display = false;
@@ -647,23 +654,29 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
 }
 
 
-/** \param nalu Input nalu to check whether its LayerId is within targetDecLayerIdSet
+/**
+ * Checks whether a given layerId should be decoded.
  */
-Bool TAppTraTop::isInTargetLayerIdSet(Int layerId) const {
-  // If the vector is empty, then all layerIds are considered to be in the set
-  if (m_targetDecLayerIdSet.size() == 0) {
+Bool TAppTraTop::xWillDecodeLayer(Int layerId) const {
+  if (xWillDecodeAllLayers()) {
     return true;
   }
 
-  // Otherwise, iterate through the array looking for the specified layerId
   for (auto p = m_targetDecLayerIdSet.begin(); p != m_targetDecLayerIdSet.end(); p++) {
     if (layerId == *p) {
       return true;
     }
   }
 
-  // The layerId was not found
   return false;
+}
+
+
+/**
+ * Checks whether all layerIds should be decoded.
+ */
+Bool TAppTraTop::xWillDecodeAllLayers() const {
+  return (m_targetDecLayerIdSet.size() == 0);
 }
 
 

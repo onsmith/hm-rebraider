@@ -164,14 +164,11 @@ Bool TAppTraCfg::parseCfg(Int argc, TChar* argv[]) {
   }
 
   // m_outputColourSpaceConvert
-  {
-    m_outputColourSpaceConvert =
-      stringToInputColourSpaceConvert(outputColourSpaceConvert, false);
-
-    if (m_outputColourSpaceConvert >= NUMBER_INPUT_COLOUR_SPACE_CONVERSIONS) {
-      fprintf(stderr, "Bad output colour space conversion string\n");
-      return false;
-    }
+  m_outputColourSpaceConvert =
+    stringToInputColourSpaceConvert(outputColourSpaceConvert, false);
+  if (m_outputColourSpaceConvert >= NUMBER_INPUT_COLOUR_SPACE_CONVERSIONS) {
+    fprintf(stderr, "Bad output colour space conversion string\n");
+    return false;
   }
 
   // m_bitstreamFileName

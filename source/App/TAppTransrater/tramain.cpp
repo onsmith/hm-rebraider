@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
   clock_t startTime = clock();
 
   // Transrate video
-  transrater.decode();
+  transrater.transrate();
 
   // Capture ending time
   clock_t endTime = clock();
