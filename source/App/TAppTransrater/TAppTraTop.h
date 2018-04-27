@@ -99,8 +99,12 @@ protected:
 
   Void xWriteOutput(TComList<TComPic*>* pcListPic , UInt tId); //< write YUV to file
   Void xFlushOutput(TComList<TComPic*>* pcListPic);            //< flush all remaining decoded pictures to file
-  Bool isNaluWithinTargetDecLayerIdSet(InputNALUnit* nalu);    //< check whether given Nalu is within targetDecLayerIdSet
 
+  // Checks whether given Nalu is within targetDecLayerIdSet
+  Bool isInTargetLayerIdSet(Int layerId) const;
+
+  // Opens an output stream for reporting decoded SEI messages.
+  Void xOpenSEIOutputStream();
 
 private:
   Void applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& pCriSEI, const TComSPS &activeSPS);
