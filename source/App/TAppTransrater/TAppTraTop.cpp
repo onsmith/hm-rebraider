@@ -220,35 +220,39 @@ Void TAppTraTop::decode() {
         m_cTVideoIOYuvReconFile.open(m_reconFileName, true, m_outputBitDepth, m_outputBitDepth, bitDepths.recon); // write mode
         openedReconFile = true;
       }
+
       // write reconstruction to file
       if (wasNewPictureFound) {
         xWriteOutput(pcListPic, nalu.m_temporalId);
       }
-      if ((wasNewPictureFound || nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA) && m_decoder.getNoOutputPriorPicsFlag()) {
+
+      if ((wasNewPictureFound || nalu.isCRASlice()) && m_decoder.getNoOutputPriorPicsFlag()) {
         m_decoder.checkNoOutputPriorPics(pcListPic);
-        m_decoder.setNoOutputPriorPicsFlag (false);
+        m_decoder.setNoOutputPriorPicsFlag(false);
       }
-      if (
-        wasNewPictureFound &&
-        (nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL ||
-         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP ||
-         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP ||
-         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL ||
-         nalu.m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP)) {
+      
+      // Handle IDR/BLA NAL units
+      // TODO: Why don't we include CRA NAL units here?
+      if (wasNewPictureFound && (nalu.isIDRSlice() || nalu.isBLASlice())) {
         xFlushOutput(pcListPic);
       }
-      if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
-        xWriteOutput( pcListPic, nalu.m_temporalId );
-        m_decoder.setFirstSliceInPicture (false);
+
+      // Handle end of sequence (EOS) NAL units
+      if (nalu.isEOS()) {
+        xWriteOutput(pcListPic, nalu.m_temporalId);
+        m_decoder.setFirstSliceInPicture(false);
       }
+
       // write reconstruction to file -- for additional bumping as defined in C.5.2.3
       if (!wasNewPictureFound && nalu.m_nalUnitType >= NAL_UNIT_CODED_SLICE_TRAIL_N && nalu.m_nalUnitType <= NAL_UNIT_RESERVED_VCL31) {
-        xWriteOutput( pcListPic, nalu.m_temporalId );
+        xWriteOutput(pcListPic, nalu.m_temporalId);
       }
     }
   }
 
+  // Send any remaining pictures to output
   xFlushOutput(pcListPic);
+
   // delete buffers
   m_decoder.deletePicBuffer();
 

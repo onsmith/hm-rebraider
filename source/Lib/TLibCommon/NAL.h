@@ -100,6 +100,35 @@ struct NALUnit
   {
     return ( (UInt)m_nalUnitType < 32 );
   }
+
+  // True if the NAL unit represents an instantaneous decoder refresh (IDR)
+  //   slice
+  Bool isIDRSlice() const {
+    return m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP;
+  }
+
+  // True if the NAL unit represents an broken link access (BLA) slice
+  Bool isBLASlice() const {
+    return m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP;
+  }
+
+  // True if the NAL unit represents a clean random access (CRA) slice
+  Bool isCRASlice() const {
+    return m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA;
+  }
+
+  // True if the NAL unit represents a random access picture (RAP) slice
+  Bool isRAPSlice() const {
+    return isIDRSlice() || isBLASlice() || isCRASlice();
+  }
+
+  // True if the NAL unit represents an end of sequence (EOS)
+  Bool isEOS() const {
+    return m_nalUnitType == NAL_UNIT_EOS;
+  }
 };
 
 struct OutputNALUnit;
