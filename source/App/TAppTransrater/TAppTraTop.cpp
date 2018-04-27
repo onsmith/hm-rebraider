@@ -551,60 +551,67 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
       iterPic++;
       pcPicBottom = *(iterPic);
 
-      if (pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() && !(pcPicTop->getPOC()%2) && (pcPicBottom->getPOC() == pcPicTop->getPOC()+1)) {
+      if (pcPicTop->getOutputMark() &&
+          pcPicBottom->getOutputMark() &&
+          !(pcPicTop->getPOC() % 2) &&
+          pcPicBottom->getPOC() == pcPicTop->getPOC() + 1) {
+
         // write to file
-        if ( !m_reconFileName.empty() )
-        {
-          const Window &conf = pcPicTop->getConformanceWindow();
-          const Window  defDisp = m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window();
-          const Bool isTff = pcPicTop->isTopField();
-          m_cTVideoIOYuvReconFile.write( pcPicTop->getPicYuvRec(), pcPicBottom->getPicYuvRec(),
-                                         m_outputColourSpaceConvert,
-                                         conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
-                                         conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
-                                         conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
-                                         conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(), NUM_CHROMA_FORMAT, isTff );
+        if (!m_reconFileName.empty()) {
+          const Window &conf    = pcPicTop->getConformanceWindow();
+          const Window  defDisp = (m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window());
+          const Bool    isTff   = pcPicTop->isTopField();
+          m_cTVideoIOYuvReconFile.write(
+            pcPicTop->getPicYuvRec(), pcPicBottom->getPicYuvRec(),
+            m_outputColourSpaceConvert,
+            conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
+            conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
+            conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
+            conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
+            NUM_CHROMA_FORMAT,
+            isTff
+          );
         }
 
         // update POC of display order
         m_iPOCLastDisplay = pcPicBottom->getPOC();
 
         // erase non-referenced picture in the reference picture list after display
-        if ( !pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark() == true ) {
+        if (!pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark()) {
           pcPicTop->setReconMark(false);
 
           // mark it should be extended later
-          pcPicTop->getPicYuvRec()->setBorderExtension( false );
+          pcPicTop->getPicYuvRec()->setBorderExtension(false);
         }
-        if ( !pcPicBottom->getSlice(0)->isReferenced() && pcPicBottom->getReconMark() == true )
-        {
+
+        if (!pcPicBottom->getSlice(0)->isReferenced() && pcPicBottom->getReconMark()) {
           pcPicBottom->setReconMark(false);
 
           // mark it should be extended later
-          pcPicBottom->getPicYuvRec()->setBorderExtension( false );
+          pcPicBottom->getPicYuvRec()->setBorderExtension(false);
         }
+
         pcPicTop->setOutputMark(false);
         pcPicBottom->setOutputMark(false);
 
-        if(pcPicTop)
-        {
+        if(pcPicTop) {
           pcPicTop->destroy();
           delete pcPicTop;
           pcPicTop = NULL;
         }
       }
     }
-    if(pcPicBottom)
-    {
+
+    if (pcPicBottom) {
       pcPicBottom->destroy();
       delete pcPicBottom;
       pcPicBottom = NULL;
     }
   }
-  else //Frame decoding
-  {
-    while (iterPic != pcListPic->end())
-    {
+
+  // Frame decoding
+  else {
+    while (iterPic != pcListPic->end()) {
       pcPic = *(iterPic);
 
       if (pcPic->getOutputMark()) {
@@ -637,15 +644,17 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
           pcPic->setReconMark(false);
 
           // mark it should be extended later
-          pcPic->getPicYuvRec()->setBorderExtension( false );
+          pcPic->getPicYuvRec()->setBorderExtension(false);
         }
         pcPic->setOutputMark(false);
       }
+
       if(pcPic != NULL) {
         pcPic->destroy();
         delete pcPic;
         pcPic = NULL;
       }
+
       iterPic++;
     }
   }
@@ -993,11 +1002,11 @@ Void TAppTraTop::applyColourRemapping(
         YUVOut[COMPONENT_Y][x] = std::min(maxOutputValue, (YUVLutB_0 + scaleOut_round) >> scaleShiftOut_neg);
 
         if (computeChroma) {
-          Int YUVMat_1 = applyColourRemappingInfoMatrix(criSEI.m_colourRemapCoeffs[1], postOffsetShift, YUVPre_0, YUVPre_1, YUVPre_2, matrixOutputOffset[1]);
+          Int YUVMat_1  = applyColourRemappingInfoMatrix(criSEI.m_colourRemapCoeffs[1], postOffsetShift, YUVPre_0, YUVPre_1, YUVPre_2, matrixOutputOffset[1]);
           Int YUVLutB_1 = applyColourRemappingInfoLut1D(YUVMat_1, postLut[1], postLutInputPrecision);
           YUVOut[COMPONENT_Cb][xc] = std::min(maxOutputValue, (YUVLutB_1 + scaleOut_round) >> scaleShiftOut_neg);
 
-          Int YUVMat_2 = applyColourRemappingInfoMatrix(criSEI.m_colourRemapCoeffs[2], postOffsetShift, YUVPre_0, YUVPre_1, YUVPre_2, matrixOutputOffset[2]);
+          Int YUVMat_2  = applyColourRemappingInfoMatrix(criSEI.m_colourRemapCoeffs[2], postOffsetShift, YUVPre_0, YUVPre_1, YUVPre_2, matrixOutputOffset[2]);
           Int YUVLutB_2 = applyColourRemappingInfoLut1D(YUVMat_2, postLut[2], postLutInputPrecision);
           YUVOut[COMPONENT_Cr][xc] = std::min(maxOutputValue, (YUVLutB_2 + scaleOut_round) >> scaleShiftOut_neg);
         }
