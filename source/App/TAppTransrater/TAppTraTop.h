@@ -106,6 +106,9 @@ protected:
   // Opens an output stream for reporting decoded SEI messages.
   Void xOpenSEIOutputStream();
 
+  // Sets the output bit depths
+  Void xSetOutputBitDepths(const BitDepths& bitDepths);
+
 private:
   Void applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& pCriSEI, const TComSPS &activeSPS);
   Void xOutputColourRemapPic(TComPic* pcPic);

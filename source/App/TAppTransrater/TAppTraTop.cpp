@@ -102,7 +102,7 @@ Void TAppTraTop::decode() {
     m_bitstreamFileName.c_str(),
     ifstream::in | ifstream::binary
   );
-  if (!bitstreamFile) {
+  if (bitstreamFile.fail()) {
     fprintf(
       stderr,
       "\nfailed to open bitstream file `%s' for reading\n",
@@ -134,19 +134,24 @@ Void TAppTraTop::decode() {
     }
   }
 
-  Bool openedReconFile = false; // reconstruction file not yet opened. (must be performed after SPS is seen)
-  Bool loopFiltered    = false;
+  // True if the output file is open. The output file can't be opened until the
+  //   SPS is seen
+  Bool openedReconFile = false;
+
+  // TODO: Write description of this variable's purpose
+  Bool loopFiltered = false;
 
   // main decoder loop
-  while (!!bitstreamFile) {
+  while (!bitstreamFile.fail()) {
     // Remember the starting position of the input bitstream file cursor
     /* Note: This serves to work around a design fault in the decoder, whereby
      * the process of reading a new slice that is the first slice of a new frame
      * requires the TDecTop::decode() method to be called again with the same
      * nal unit. */
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
-    TComCodingStatistics::TComCodingStatisticsData backupStats(TComCodingStatistics::GetStatistics());
-    const streampos initialPositionInInputBitstream = bitstreamFile.tellg() - streampos(inputStream.GetNumBufferedBytes());
+    auto backupStats(TComCodingStatistics::GetStatistics());
+    const streampos initialPositionInInputBitstream =
+      bitstreamFile.tellg() - streampos(inputStream.GetNumBufferedBytes());
 #else
     const streampos initialPositionInInputBitstream = bitstreamFile.tellg();
 #endif
@@ -156,8 +161,10 @@ Void TAppTraTop::decode() {
     AnnexBStats  stats;
     byteStreamNALUnit(inputStream, nalu.getBitstream().getFifo(), stats);
 
-    // call decoding function
+    // True if a new picture is found within the current NAL unit
     Bool wasNewPictureFound = false;
+
+    // Call decoding function
     if (nalu.getBitstream().getFifo().empty()) {
       /* this can happen if the following occur:
        *  - empty input file
@@ -173,18 +180,20 @@ Void TAppTraTop::decode() {
       );
 
       if (isInTargetTemporalIdSet && isInTargetLayerIdSet(nalu.m_nuhLayerId)) {
-        wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
+        wasNewPictureFound =
+          m_decoder.decode(nalu, m_iSkipFrame, m_iPOCLastDisplay);
       }
     }
 
-    // If a new picture was found in this NAL unit, adjust the input bitstream
-    //   file cursor
+    // If a new picture was found in the current NAL unit, adjust the input
+    //   bitstream file cursor
     if (wasNewPictureFound) {
       bitstreamFile.clear();
-      /* initialPositionInInputBitstream points to the current nalunit payload[1] due to the
-        * need for the annexB parser to read three extra bytes.
-        * [1] except for the first NAL unit in the file
-        *     (but wasNewPictureFound doesn't happen then) */
+      /* initialPositionInInputBitstream points to the current nalunit
+       * payload[1] due to the need for the annexB parser to read three extra
+       * bytes. [1] except for the first NAL unit in the file (but
+       * wasNewPictureFound doesn't happen then)
+       */
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
       bitstreamFile.seekg(initialPositionInInputBitstream);
       inputStream.reset();
@@ -195,29 +204,41 @@ Void TAppTraTop::decode() {
 #endif
     }
 
+    // True if a picture was finished while decoding the current NAL unit
+    Bool wasPictureFinished =
+      (wasNewPictureFound || bitstreamFile.fail() || nalu.isEOS());
+
     // Apply in-loop filters to reconstructed picture
-    if ((wasNewPictureFound || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) && !m_decoder.getFirstSliceInSequence()) {
-      if (!loopFiltered || bitstreamFile) {
+    if (wasPictureFinished && !m_decoder.getFirstSliceInSequence()) {
+      if (!loopFiltered || !bitstreamFile.fail()) {
         m_decoder.executeLoopFilters(poc, pcListPic);
       }
-      loopFiltered = (nalu.m_nalUnitType == NAL_UNIT_EOS);
-      if (nalu.m_nalUnitType == NAL_UNIT_EOS) {
+      loopFiltered = nalu.isEOS();
+      if (nalu.isEOS()) {
         m_decoder.setFirstSliceInSequence(true);
       }
-    } else if ((wasNewPictureFound || !bitstreamFile || nalu.m_nalUnitType == NAL_UNIT_EOS) && m_decoder.getFirstSliceInSequence()) {
+    } else if (wasPictureFinished && m_decoder.getFirstSliceInSequence()) {
       m_decoder.setFirstSliceInPicture(true);
     }
 
     if (pcListPic) {
+      // Open YUV reconstruction output file
       if (!m_reconFileName.empty() && !openedReconFile) {
-        const BitDepths &bitDepths = pcListPic->front()->getPicSym()->getSPS().getBitDepths(); // use bit depths of first reconstructed picture.
-        for (UInt c = 0; c < MAX_NUM_CHANNEL_TYPE; c++) {
-          if (m_outputBitDepth[c] == 0) {
-            m_outputBitDepth[c] = bitDepths.recon[c];
-          }
-        }
+        // Set the output pixel bit depths to be the same as the bitdepths used
+        //   by the first reconstructed picture
+        const BitDepths& bitDepths =
+          pcListPic->front()->getPicSym()->getSPS().getBitDepths();
+        xSetOutputBitDepths(bitDepths);
 
-        m_cTVideoIOYuvReconFile.open(m_reconFileName, true, m_outputBitDepth, m_outputBitDepth, bitDepths.recon); // write mode
+        // Open YUV reconstruction output file
+        m_cTVideoIOYuvReconFile.open(
+          m_reconFileName,
+          true,
+          m_outputBitDepth,
+          m_outputBitDepth,
+          bitDepths.recon
+        );
+
         openedReconFile = true;
       }
 
@@ -275,6 +296,18 @@ Void TAppTraTop::xOpenSEIOutputStream() {
         m_outputDecodedSEIMessagesFilename.c_str()
       );
       exit(EXIT_FAILURE);
+    }
+  }
+}
+
+
+/**
+ * Sets the output bit depths.
+ */
+Void TAppTraTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
+  for (UInt c = 0; c < MAX_NUM_CHANNEL_TYPE; c++) {
+    if (m_outputBitDepth[c] == 0) {
+      m_outputBitDepth[c] = bitDepths.recon[c];
     }
   }
 }
