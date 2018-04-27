@@ -451,7 +451,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
           }
 
           if (display) {
-            xWriteFieldToOutput(pcPicTop, pcPicBottom);
+            xWriteFrameToOutput(pcPicTop, pcPicBottom);
           }
         }
 
@@ -552,7 +552,7 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
 
       // Write to output file
       if (areFieldsMarkedForOutput && areFieldsCoupled) {
-        xWriteFieldToOutput(pcPicTop, pcPicBottom);
+        xWriteFrameToOutput(pcPicTop, pcPicBottom);
 
         // update POC of display order
         m_iPOCLastDisplay = pcPicBottom->getPOC();
@@ -658,9 +658,9 @@ Void TAppTraTop::xWriteFrameToOutput(TComPic* pic) {
 
 
 /**
- * Writes two interlaced fields to the output bitstream.
+ * Writes a reconstructed interlaced frame to the output bitstream.
  */
-Void TAppTraTop::xWriteFieldToOutput(TComPic* field1, TComPic* field2) {
+Void TAppTraTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
   if (!m_reconFileName.empty()) {
     const Window& conf    = field1->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? field1->getDefDisplayWindow() : Window());

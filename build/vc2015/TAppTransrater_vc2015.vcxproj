@@ -193,6 +193,10 @@
       <Project>{f8b77a48-af6c-4746-a89f-b706aba6ad94}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="TLibEncoder_vc2015.vcxproj">
+      <Project>{47e90995-1fc5-4ee4-a94d-ad474169f0e1}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
     <ProjectReference Include="TLibVideoIO_vc2015.vcxproj">
       <Project>{5280c25a-d316-4be7-ae50-29d72108624f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

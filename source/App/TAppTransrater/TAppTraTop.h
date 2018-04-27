@@ -112,11 +112,11 @@ protected:
   // Sets the output bit depths
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
 
-  // Writes a frame to the output bitstream
+  // Writes a reconstructed frame to the output bitstream
   Void xWriteFrameToOutput(TComPic* pic);
 
-  // Writes two fields to the output bitstream
-  Void xWriteFieldToOutput(TComPic* field1, TComPic* field2);
+  // Writes a reconstructed interlaced frame to the output bitstream
+  Void xWriteFrameToOutput(TComPic* field1, TComPic* field2);
 
 private:
   Void applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& pCriSEI, const TComSPS &activeSPS);
