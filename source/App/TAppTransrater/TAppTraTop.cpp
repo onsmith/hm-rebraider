@@ -346,7 +346,7 @@ Void TAppTraTop::xCreateDecoder() {
 #endif
 
   if (!m_outputDecodedSEIMessagesFilename.empty()) {
-    std::ostream &os=m_seiMessageFileStream.is_open() ? m_seiMessageFileStream : std::cout;
+    std::ostream& os = m_seiMessageFileStream.is_open() ? m_seiMessageFileStream : std::cout;
     m_decoder.setDecodedSEIMessageOutputStream(&os);
   }
 
@@ -360,18 +360,19 @@ Void TAppTraTop::xCreateDecoder() {
 /**
  * Writes completed, reconstructed pictures to output file
  *
- * \param pcListPic list of pictures to be written to file
- * \param tId       temporal sub-layer ID
+ * \param pcListPic  list of pictures to be written to file
+ * \param tId        temporal sub-layer ID
  */
 Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
   if (pcListPic->empty()) {
     return;
   }
 
-  const TComSPS* activeSPS               = &(pcListPic->front()->getPicSym()->getSPS());
-        UInt     numReorderPicsHighestTid;
-        UInt     maxDecPicBufferingHighestTid;
-        UInt     maxNrSublayers          = activeSPS->getMaxTLayers();
+  const TComSPS* activeSPS      = &(pcListPic->front()->getPicSym()->getSPS());
+        UInt     maxNrSublayers = activeSPS->getMaxTLayers();
+
+  UInt numReorderPicsHighestTid;
+  UInt maxDecPicBufferingHighestTid;
 
   if (m_iMaxTemporalLayer == -1 || m_iMaxTemporalLayer >= maxNrSublayers) {
     numReorderPicsHighestTid     = activeSPS->getNumReorderPics(maxNrSublayers - 1);
@@ -387,7 +388,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
   // TODO: Write description for this variable
   Int numPicsNotYetDisplayed = 0;
 
-  // Loop through picture buffer to calculate values of dpbFullness and
+  // Loop through picture buffer to calculate dpbFullness and
   //   numPicsNotYetDisplayed
   for (auto p = pcListPic->begin(); p != pcListPic->end(); p++) {
     TComPic* pic = *p;
@@ -406,8 +407,8 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
   }
 
   TComPic* pcPic = *iterPic;
-
-  // Field Decoding
+  
+  // Field output (interlacing)
   if (numPicsNotYetDisplayed > 2 && pcPic->isField()) {
     auto endPic = pcListPic->end();
     endPic--;
@@ -418,18 +419,28 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
       iterPic++;
       TComPic* pcPicBottom = *iterPic;
 
-      if ( pcPicTop->getOutputMark() && pcPicBottom->getOutputMark() &&
-          (numPicsNotYetDisplayed >  numReorderPicsHighestTid || dpbFullness > maxDecPicBufferingHighestTid) &&
-          (!(pcPicTop->getPOC() % 2) && pcPicBottom->getPOC() == pcPicTop->getPOC() + 1) &&
-          (pcPicTop->getPOC() == m_iPOCLastDisplay+1 || m_iPOCLastDisplay < 0))
-      {
-        // write to file
-        numPicsNotYetDisplayed = numPicsNotYetDisplayed - 2;
-        if (!m_reconFileName.empty()) {
-          const Window &conf    = pcPicTop->getConformanceWindow();
-          const Window  defDisp = m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window();
-          const Bool    isTff   = pcPicTop->isTopField();
+      Bool areFieldsMarkedForOutput =
+        (pcPicTop->getOutputMark() && pcPicBottom->getOutputMark());
+      Bool areFieldsAdjacent =
+        (pcPicBottom->getPOC() == pcPicTop->getPOC() + 1);
+      Bool areFieldsCoupled =
+        (areFieldsAdjacent && pcPicTop->getPOC() % 2 == 0);
+      Bool areFieldsNextForOutput = 
+        (pcPicTop->getPOC() == m_iPOCLastDisplay + 1 || m_iPOCLastDisplay < 0);
+      Bool isBufferFull = (
+        numPicsNotYetDisplayed > numReorderPicsHighestTid ||
+        dpbFullness > maxDecPicBufferingHighestTid
+      );
 
+      // Output frame to file
+      if (areFieldsMarkedForOutput &&
+          isBufferFull &&
+          areFieldsCoupled &&
+          areFieldsNextForOutput) {
+
+        numPicsNotYetDisplayed = numPicsNotYetDisplayed - 2;
+
+        if (!m_reconFileName.empty()) {
           Bool display = true;
           if (m_decodedNoDisplaySEIEnabled) {
             SEIMessages noDisplay = getSeisByType(pcPic->getSEIs(), SEI::NO_DISPLAY);
@@ -440,17 +451,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
           }
 
           if (display) {
-            m_cTVideoIOYuvReconFile.write(
-              pcPicTop->getPicYuvRec(),
-              pcPicBottom->getPicYuvRec(),
-              m_outputColourSpaceConvert,
-              conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
-              conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
-              conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
-              conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
-              NUM_CHROMA_FORMAT,
-              isTff
-            );
+            xWriteFieldToOutput(pcPicTop, pcPicBottom);
           }
         }
 
@@ -462,52 +463,42 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
           pcPicTop->setReconMark(false);
 
           // mark it should be extended later
-          pcPicTop->getPicYuvRec()->setBorderExtension( false );
+          pcPicTop->getPicYuvRec()->setBorderExtension(false);
         }
         if (!pcPicBottom->getSlice(0)->isReferenced() && pcPicBottom->getReconMark() == true) {
           pcPicBottom->setReconMark(false);
 
           // mark it should be extended later
-          pcPicBottom->getPicYuvRec()->setBorderExtension( false );
+          pcPicBottom->getPicYuvRec()->setBorderExtension(false);
         }
         pcPicTop->setOutputMark(false);
         pcPicBottom->setOutputMark(false);
       }
     }
 
-  // Frame Decoding
+  // Frame output
   } else if (!pcPic->isField()) {
     iterPic = pcListPic->begin();
 
     while (iterPic != pcListPic->end()) {
       pcPic = *(iterPic);
 
-      if (
-        pcPic->getOutputMark() &&
-        pcPic->getPOC() > m_iPOCLastDisplay && (
+      Bool isBufferFull = (
         numPicsNotYetDisplayed > numReorderPicsHighestTid ||
-        dpbFullness > maxDecPicBufferingHighestTid)
-      ) {
-        // write to file
-         numPicsNotYetDisplayed--;
+        dpbFullness > maxDecPicBufferingHighestTid
+      );
+
+      // Output frame to file
+      if (pcPic->getOutputMark() && isBufferFull) {
+        numPicsNotYetDisplayed--;
 
         if(pcPic->getSlice(0)->isReferenced() == false) {
           dpbFullness--;
         }
 
-        if (!m_reconFileName.empty()) {
-          const Window &conf    = pcPic->getConformanceWindow();
-          const Window  defDisp = m_respectDefDispWindow ? pcPic->getDefDisplayWindow() : Window();
+        xWriteFrameToOutput(pcPic);
 
-          m_cTVideoIOYuvReconFile.write( pcPic->getPicYuvRec(),
-                                         m_outputColourSpaceConvert,
-                                         conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
-                                         conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
-                                         conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
-                                         conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
-                                         NUM_CHROMA_FORMAT, m_bClipOutputVideoToRec709Range  );
-        }
-
+        // Remap picture color space and output remapped picture
         if (!m_colourRemapSEIFileName.empty()) {
           xOutputColourRemapPic(pcPic);
         }
@@ -520,8 +511,9 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
           pcPic->setReconMark(false);
 
           // mark it should be extended later
-          pcPic->getPicYuvRec()->setBorderExtension( false );
+          pcPic->getPicYuvRec()->setBorderExtension(false);
         }
+
         pcPic->setOutputMark(false);
       }
 
@@ -538,45 +530,34 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
     return;
   }
 
-  TComList<TComPic*>::iterator iterPic = pcListPic->begin();
-  TComPic*                     pcPic   = *(iterPic);
-
-  // Field Decoding
-  if (pcPic->isField()) {
-    TComList<TComPic*>::iterator endPic = pcListPic->end();
+  // Field output (interlacing)
+  if (pcListPic->front()->isField()) {
+    auto     iterPic     = pcListPic->begin();
+    auto     endPic      = pcListPic->end();
+    TComPic* pcPic       = *iterPic;
+    TComPic* pcPicTop;
+    TComPic* pcPicBottom = NULL;
     endPic--;
-    TComPic *pcPicTop, *pcPicBottom = NULL;
     while (iterPic != endPic) {
-      pcPicTop = *(iterPic);
+      pcPicTop = *iterPic;
       iterPic++;
-      pcPicBottom = *(iterPic);
+      pcPicBottom = *iterPic;
 
-      if (pcPicTop->getOutputMark() &&
-          pcPicBottom->getOutputMark() &&
-          !(pcPicTop->getPOC() % 2) &&
-          pcPicBottom->getPOC() == pcPicTop->getPOC() + 1) {
+      Bool areFieldsMarkedForOutput =
+        (pcPicTop->getOutputMark() && pcPicBottom->getOutputMark());
+      Bool areFieldsAdjacent =
+        (pcPicBottom->getPOC() == pcPicTop->getPOC() + 1);
+      Bool areFieldsCoupled =
+        (areFieldsAdjacent && pcPicTop->getPOC() % 2 == 0);
 
-        // write to file
-        if (!m_reconFileName.empty()) {
-          const Window &conf    = pcPicTop->getConformanceWindow();
-          const Window  defDisp = (m_respectDefDispWindow ? pcPicTop->getDefDisplayWindow() : Window());
-          const Bool    isTff   = pcPicTop->isTopField();
-          m_cTVideoIOYuvReconFile.write(
-            pcPicTop->getPicYuvRec(), pcPicBottom->getPicYuvRec(),
-            m_outputColourSpaceConvert,
-            conf.getWindowLeftOffset() + defDisp.getWindowLeftOffset(),
-            conf.getWindowRightOffset() + defDisp.getWindowRightOffset(),
-            conf.getWindowTopOffset() + defDisp.getWindowTopOffset(),
-            conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
-            NUM_CHROMA_FORMAT,
-            isTff
-          );
-        }
+      // Write to output file
+      if (areFieldsMarkedForOutput && areFieldsCoupled) {
+        xWriteFieldToOutput(pcPicTop, pcPicBottom);
 
         // update POC of display order
         m_iPOCLastDisplay = pcPicBottom->getPOC();
 
-        // erase non-referenced picture in the reference picture list after display
+        // erase non-referenced picture in the reference picture list
         if (!pcPicTop->getSlice(0)->isReferenced() && pcPicTop->getReconMark()) {
           pcPicTop->setReconMark(false);
 
@@ -609,57 +590,92 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
     }
   }
 
-  // Frame decoding
+  // Frame output
   else {
-    while (iterPic != pcListPic->end()) {
-      pcPic = *(iterPic);
+    for (auto p = pcListPic->begin(); p != pcListPic->end(); p++) {
+      TComPic* pic = *p;
 
-      if (pcPic->getOutputMark()) {
-        // write to file
-        if (!m_reconFileName.empty()) {
-          const Window &conf    = pcPic->getConformanceWindow();
-          const Window  defDisp = m_respectDefDispWindow ? pcPic->getDefDisplayWindow() : Window();
+      if (pic->getOutputMark()) {
+        // Write to output file
+        xWriteFrameToOutput(pic);
 
-          m_cTVideoIOYuvReconFile.write(
-            pcPic->getPicYuvRec(),
-            m_outputColourSpaceConvert,
-            conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
-            conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
-            conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
-            conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
-            NUM_CHROMA_FORMAT,
-            m_bClipOutputVideoToRec709Range
-          );
-        }
-
+        // Remap frame colors according to provided SEI and output result
         if (!m_colourRemapSEIFileName.empty()) {
-          xOutputColourRemapPic(pcPic);
+          xOutputColourRemapPic(pic);
         }
 
-        // update POC of display order
-        m_iPOCLastDisplay = pcPic->getPOC();
+        // Update POC of display order
+        m_iPOCLastDisplay = pic->getPOC();
 
-        // erase non-referenced picture in the reference picture list after display
-        if (!pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark() == true) {
-          pcPic->setReconMark(false);
+        // Erase non-referenced picture from the reference picture list
+        if (!pic->getSlice(0)->isReferenced() && pic->getReconMark()) {
+          pic->setReconMark(false);
 
-          // mark it should be extended later
-          pcPic->getPicYuvRec()->setBorderExtension(false);
+          // Mark it should be extended later
+          pic->getPicYuvRec()->setBorderExtension(false);
         }
-        pcPic->setOutputMark(false);
+
+        pic->setOutputMark(false);
       }
 
-      if(pcPic != NULL) {
-        pcPic->destroy();
-        delete pcPic;
-        pcPic = NULL;
+      // Delete picture
+      if(pic != NULL) {
+        pic->destroy();
+        delete pic;
+        pic = NULL;
       }
-
-      iterPic++;
     }
   }
+
+  // Clear decoded picture buffer
   pcListPic->clear();
+
+  // Reset last displayed index
   m_iPOCLastDisplay = -MAX_INT;
+}
+
+
+/**
+ * Writes a frame to the output bitstream.
+ */
+Void TAppTraTop::xWriteFrameToOutput(TComPic* pic) {
+  if (!m_reconFileName.empty()) {
+    const Window &conf    = pic->getConformanceWindow();
+    const Window  defDisp = m_respectDefDispWindow ? pic->getDefDisplayWindow() : Window();
+
+    m_cTVideoIOYuvReconFile.write(
+      pic->getPicYuvRec(),
+      m_outputColourSpaceConvert,
+      conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
+      conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
+      conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
+      conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
+      NUM_CHROMA_FORMAT,
+      m_bClipOutputVideoToRec709Range
+    );
+  }
+}
+
+
+/**
+ * Writes two interlaced fields to the output bitstream.
+ */
+Void TAppTraTop::xWriteFieldToOutput(TComPic* field1, TComPic* field2) {
+  if (!m_reconFileName.empty()) {
+    const Window& conf    = field1->getConformanceWindow();
+    const Window  defDisp = (m_respectDefDispWindow ? field1->getDefDisplayWindow() : Window());
+    m_cTVideoIOYuvReconFile.write(
+      field1->getPicYuvRec(),
+      field2->getPicYuvRec(),
+      m_outputColourSpaceConvert,
+      conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
+      conf.getWindowRightOffset()  + defDisp.getWindowRightOffset(),
+      conf.getWindowTopOffset()    + defDisp.getWindowTopOffset(),
+      conf.getWindowBottomOffset() + defDisp.getWindowBottomOffset(),
+      NUM_CHROMA_FORMAT,
+      field1->isTopField()
+    );
+  }
 }
 
 
@@ -690,12 +706,12 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 
 
 Void TAppTraTop::xOutputColourRemapPic(TComPic* pcPic) {
-  const TComSPS &sps=pcPic->getPicSym()->getSPS();
-  SEIMessages colourRemappingInfo = getSeisByType(pcPic->getSEIs(), SEI::COLOUR_REMAPPING_INFO );
-  SEIColourRemappingInfo *seiColourRemappingInfo = ( colourRemappingInfo.size() > 0 ) ? (SEIColourRemappingInfo*) *(colourRemappingInfo.begin()) : NULL;
+  const TComSPS& sps = pcPic->getPicSym()->getSPS();
+  SEIMessages colourRemappingInfo = getSeisByType(pcPic->getSEIs(), SEI::COLOUR_REMAPPING_INFO);
+  SEIColourRemappingInfo* seiColourRemappingInfo = (colourRemappingInfo.size() > 0) ? (SEIColourRemappingInfo*) *(colourRemappingInfo.begin()) : NULL;
 
   if (colourRemappingInfo.size() > 1) {
-    printf ("Warning: Got multiple Colour Remapping Information SEI messages. Using first.");
+    printf("Warning: Got multiple Colour Remapping Information SEI messages. Using first.");
   }
 
   if (seiColourRemappingInfo) {
