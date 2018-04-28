@@ -408,7 +408,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic, UInt tId) {
 
   TComPic* pcPic = *iterPic;
   
-  // Field output (interlacing)
+  // Interlaced field output
   if (numPicsNotYetDisplayed > 2 && pcPic->isField()) {
     auto endPic = pcListPic->end();
     endPic--;
@@ -530,7 +530,7 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
     return;
   }
 
-  // Field output (interlacing)
+  // Interlaced field output
   if (pcListPic->front()->isField()) {
     auto     iterPic     = pcListPic->begin();
     auto     endPic      = pcListPic->end();
@@ -636,7 +636,7 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
 
 
 /**
- * Writes a frame to the output bitstream.
+ * Writes a reconstructed frame to the output bitstream.
  */
 Void TAppTraTop::xWriteFrameToOutput(TComPic* pic) {
   if (!m_reconFileName.empty()) {
