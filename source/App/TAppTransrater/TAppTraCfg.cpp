@@ -64,7 +64,7 @@ namespace po = df::program_options_lite;
  * Default constructor
  */
 TAppTraCfg::TAppTraCfg() :
-  m_bitstreamFileName(),
+  m_inputFileName(),
   m_reconFileName(),
   m_iSkipFrame(0),
   m_outputColourSpaceConvert(IPCOLOURSPACE_UNCHANGED),
@@ -113,7 +113,7 @@ Bool TAppTraCfg::parseCfg(Int argc, TChar* argv[]) {
   // Specify permitted command line arguments in options structure
   opts.addOptions()
     ("help",                             do_help,                               false,      "this help text")
-    ("BitstreamFile,b",                  m_bitstreamFileName,                   string(""), "bitstream input file name")
+    ("BitstreamFile,b",                  m_inputFileName,                   string(""), "bitstream input file name")
     ("ReconFile,o",                      m_reconFileName,                       string(""), "reconstructed YUV output file name\n"
                                                                                             "YUV writing is skipped if omitted")
     ("WarnUnknownParameter,w",           warnUnknownParameter,                  0,          "warn for unknown configuration parameters instead of failing")
@@ -171,8 +171,8 @@ Bool TAppTraCfg::parseCfg(Int argc, TChar* argv[]) {
     return false;
   }
 
-  // m_bitstreamFileName
-  if (m_bitstreamFileName.empty()) {
+  // m_inputFileName
+  if (m_inputFileName.empty()) {
     fprintf(stderr, "No input file specified, aborting\n");
     return false;
   }

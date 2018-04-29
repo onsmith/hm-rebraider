@@ -90,11 +90,20 @@ Void TAppTraTop::transrate() {
   TComList<TComPic*>* dpb = NULL;
 
   // Open input h265 bitstream for reading source video
-  ifstream sourceInputStream;
-  xOpenSourceInputStream(sourceInputStream);
-  InputByteStream inputStream(sourceInputStream);
+  ifstream inputStream;
+  xOpenInputStream(inputStream);
+  InputByteStream inputByteStream(inputStream);
 
-  // Configure the encoder and decoder
+  // Open output h265 bitstream for writing transcoded video
+  ofstream outputStream;
+  xOpenOutputStream(outputStream);
+
+  // Reset decoded yuv output stream
+  if (m_decodedYUVOutputStream.isOpen()) {
+    m_decodedYUVOutputStream.close();
+  }
+
+  // Copy transcoding configuration to the encoder and decoder
   xConfigDecoder();
   xConfigEncoder();
 
@@ -105,7 +114,7 @@ Void TAppTraTop::transrate() {
   Bool loopFiltered = false;
 
   // Main decoder loop
-  while (!sourceInputStream.fail()) {
+  while (!inputStream.fail()) {
     // Remember the starting position of the input bitstream file cursor
     /* Note: This serves to work around a design fault in the decoder, whereby
      * the process of reading a new slice that is the first slice of a new frame
@@ -114,15 +123,15 @@ Void TAppTraTop::transrate() {
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
     auto backupStats(TComCodingStatistics::GetStatistics());
     const streampos initialPositionInInputBitstream =
-      sourceInputStream.tellg() - streampos(inputStream.GetNumBufferedBytes());
+      inputStream.tellg() - streampos(inputByteStream.GetNumBufferedBytes());
 #else
-    const streampos initialPositionInInputBitstream = sourceInputStream.tellg();
+    const streampos initialPositionInInputBitstream = inputStream.tellg();
 #endif
 
     // Read one NAL unit from input bitstream
     InputNALUnit nalu;
     AnnexBStats  stats;
-    byteStreamNALUnit(inputStream, nalu.getBitstream().getFifo(), stats);
+    byteStreamNALUnit(inputByteStream, nalu.getBitstream().getFifo(), stats);
 
     // True if a new picture is found within the current NAL unit
     Bool wasNewPictureFound = false;
@@ -151,29 +160,29 @@ Void TAppTraTop::transrate() {
     // If a new picture was found in the current NAL unit, adjust the input
     //   bitstream file cursor
     if (wasNewPictureFound) {
-      sourceInputStream.clear();
+      inputStream.clear();
       /* initialPositionInInputBitstream points to the current nalunit
        * payload[1] due to the need for the annexB parser to read three extra
        * bytes. [1] except for the first NAL unit in the file (but
        * wasNewPictureFound doesn't happen then)
        */
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
-      sourceInputStream.seekg(initialPositionInInputBitstream);
-      inputStream.reset();
+      inputStream.seekg(initialPositionInInputBitstream);
+      inputByteStream.reset();
       TComCodingStatistics::SetStatistics(backupStats);
 #else
-      sourceInputStream.seekg(initialPositionInInputBitstream - streamoff(3));
-      inputStream.reset();
+      inputStream.seekg(initialPositionInInputBitstream - streamoff(3));
+      inputByteStream.reset();
 #endif
     }
 
     // True if a picture was finished while decoding the current NAL unit
     Bool wasPictureFinished =
-      (wasNewPictureFound || sourceInputStream.fail() || nalu.isEOS());
+      (wasNewPictureFound || inputStream.fail() || nalu.isEOS());
 
     // Apply in-loop filters to reconstructed picture
     if (wasPictureFinished && !m_decoder.getFirstSliceInSequence()) {
-      if (!loopFiltered || !sourceInputStream.fail()) {
+      if (!loopFiltered || !inputStream.fail()) {
         m_decoder.executeLoopFilters(poc, dpb);
       }
       loopFiltered = nalu.isEOS();
@@ -186,7 +195,7 @@ Void TAppTraTop::transrate() {
 
     if (dpb != nullptr) {
       // Open YUV reconstruction output file
-      if (!m_reconFileName.empty() && !m_sourceYUVOutputStream.isOpen()) {
+      if (!m_reconFileName.empty() && !m_decodedYUVOutputStream.isOpen()) {
         // Set the output pixel bit depths to be the same as the bitdepths used
         //   by the first reconstructed picture
         const BitDepths& bitDepths =
@@ -194,7 +203,7 @@ Void TAppTraTop::transrate() {
         xSetOutputBitDepths(bitDepths);
 
         // Open YUV reconstruction output file
-        m_sourceYUVOutputStream.open(
+        m_decodedYUVOutputStream.open(
           m_reconFileName,
           true,
           m_outputBitDepth,
@@ -245,9 +254,9 @@ Void TAppTraTop::transrate() {
 /**
  * Helper method to open an ifstream for reading the source hevc bitstream
  */
-Void TAppTraTop::xOpenSourceInputStream(ifstream& stream) const {
+Void TAppTraTop::xOpenInputStream(ifstream& stream) const {
   stream.open(
-    m_bitstreamFileName.c_str(),
+    m_inputFileName.c_str(),
     ifstream::in | ifstream::binary
   );
 
@@ -255,7 +264,27 @@ Void TAppTraTop::xOpenSourceInputStream(ifstream& stream) const {
     fprintf(
       stderr,
       "\nfailed to open bitstream file `%s' for reading\n",
-      m_bitstreamFileName.c_str()
+      m_inputFileName.c_str()
+    );
+    exit(EXIT_FAILURE);
+  }
+}
+
+
+/**
+ * Helper method to open an ofstream for writing the transrated hevc bitstream
+ */
+Void TAppTraTop::xOpenOutputStream(ofstream& stream) const {
+  stream.open(
+    m_outputFileName.c_str(),
+    fstream::binary | fstream::out
+  );
+
+  if (!stream.is_open() || !stream.good()) {
+    fprintf(
+      stderr,
+      "\nfailed to open bitstream file `%s' for writing\n",
+      m_outputFileName.c_str()
     );
     exit(EXIT_FAILURE);
   }
@@ -278,11 +307,6 @@ Void TAppTraTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
  * Transfers the current configuration to the decoder object
  */
 Void TAppTraTop::xConfigDecoder() {
-  // Reset source reconstruction yuv output file
-  if (m_sourceYUVOutputStream.isOpen()) {
-    m_sourceYUVOutputStream.close();
-  }
-
   // Reset decoder
   m_decoder.destroy();
   m_decoder.create();
@@ -584,11 +608,11 @@ Void TAppTraTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
  * Writes a raw reconstructed frame to the output bitstream.
  */
 Void TAppTraTop::xWriteFrameToOutput(TComPic* frame) {
-  if (m_sourceYUVOutputStream.isOpen()) {
+  if (m_decodedYUVOutputStream.isOpen()) {
     const Window &conf    = frame->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? frame->getDefDisplayWindow() : Window());
 
-    m_sourceYUVOutputStream.write(
+    m_decodedYUVOutputStream.write(
       frame->getPicYuvRec(),
       m_outputColourSpaceConvert,
       conf.getWindowLeftOffset()   + defDisp.getWindowLeftOffset(),
@@ -606,11 +630,11 @@ Void TAppTraTop::xWriteFrameToOutput(TComPic* frame) {
  * Writes a raw reconstructed interlaced frame to the output bitstream.
  */
 Void TAppTraTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
-  if (m_sourceYUVOutputStream.isOpen()) {
+  if (m_decodedYUVOutputStream.isOpen()) {
     const Window& conf    = field1->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? field1->getDefDisplayWindow() : Window());
 
-    m_sourceYUVOutputStream.write(
+    m_decodedYUVOutputStream.write(
       field1->getPicYuvRec(),
       field2->getPicYuvRec(),
       m_outputColourSpaceConvert,

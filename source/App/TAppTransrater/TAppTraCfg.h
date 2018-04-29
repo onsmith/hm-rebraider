@@ -59,7 +59,7 @@
 class TAppTraCfg {
 protected:
   // Input compressed h265 bitstream file name
-  std::string m_bitstreamFileName;
+  std::string m_inputFileName;
 
   // Output reconstruction file name
   std::string m_reconFileName;

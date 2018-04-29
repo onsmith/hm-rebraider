@@ -58,6 +58,7 @@
 
 using std::ifstream;
 using std::ofstream;
+using std::ostream;
 
 
 //! \ingroup TAppTransrater
@@ -76,7 +77,7 @@ private:
   Int m_lastOutputPOC;
 
   // Output stream for reconstructed source YUV frames
-  TVideoIOYuv m_sourceYUVOutputStream;
+  TVideoIOYuv m_decodedYUVOutputStream;
 
 
 public:
@@ -107,7 +108,10 @@ protected:
    */
 
   // Helper method to open an ifstream for reading the source hevc bitstream
-  Void xOpenSourceInputStream(ifstream& stream) const;
+  Void xOpenInputStream(ifstream& stream) const;
+
+  // Helper method to open an ofstream for writing the transrated hevc bitstream
+  Void xOpenOutputStream(ofstream& stream) const;
 
 
   /**
