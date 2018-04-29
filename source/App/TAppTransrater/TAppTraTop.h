@@ -56,49 +56,63 @@
 #include "TAppTraCfg.h"
 
 
+using std::ifstream;
+using std::ofstream;
+
+
 //! \ingroup TAppTransrater
 //! \{
 
 
 class TAppTraTop : public TAppTraCfg {
 private:
-  // Internal encoder and decoder objects
-  TEncTop m_encoder;
+  // Internal decoder object
   TDecTop m_decoder;
 
-  // Output YUV bitstream (DEPRECATED)
-  TVideoIOYuv m_cTVideoIOYuvReconFile;
+  // Internal encoder object
+  TEncTop m_encoder;
 
-  // output control
-  Int           m_iPOCLastDisplay;      // last POC in display order
-  std::ofstream m_seiMessageFileStream; // Used for outputing SEI messages.
+  // The picture order count (POC) of the last frame that was output
+  Int m_lastOutputPOC;
 
-  SEIColourRemappingInfo* m_pcSeiColourRemappingInfoPrevious;
+  // Output stream for reconstructed source YUV frames
+  TVideoIOYuv m_sourceYUVOutputStream;
 
 
 public:
   // Default constructor
   TAppTraTop();
 
-  // Destructor
-  virtual ~TAppTraTop();
-
-  // Main transrating function
+  // Performs transrating
   Void transrate();
 
-  // Retrieves the number of decoding errors encountered
-  UInt getNumberOfChecksumErrorsDetected() const;
+  // Gets the number of decoding errors detected
+  UInt numDecodingErrorsDetected() const;
 
 
 protected:
-  // Initializes internal decoder object
-  Void xCreateDecoder();
-  
-  // Destroys internal decoder object
-  Void xDestroyDecoder();
+  /**
+   * Configuration of encoder and decoder objects
+   */
 
-  Void xWriteOutput(TComList<TComPic*>* pcListPic , UInt tId); //< write YUV to file
-  Void xFlushOutput(TComList<TComPic*>* pcListPic);            //< flush all remaining decoded pictures to file
+  // Transfers the current configuration to the encoder object
+  Void xConfigEncoder();
+
+  // Transfers the current configuration to the decoder object
+  Void xConfigDecoder();
+
+
+  /**
+   * I/O stream management
+   */
+
+  // Helper method to open an ifstream for reading the source hevc bitstream
+  Void xOpenSourceInputStream(ifstream& stream) const;
+
+
+  /**
+   * Helper methods
+   */
 
   // Checks whether a given layerId should be decoded
   Bool xWillDecodeLayer(Int layerId) const;
@@ -106,21 +120,27 @@ protected:
   // Checks whether all layerIds should be decoded
   Bool xWillDecodeAllLayers() const;
 
-  // Opens an output stream for reporting decoded SEI messages.
-  Void xOpenSEIOutputStream();
-
-  // Sets the output bit depths
+  // Overwrites the default configuration for output bit depth
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
 
-  // Writes a reconstructed frame to the output bitstream
-  Void xWriteFrameToOutput(TComPic* pic);
 
-  // Writes a reconstructed interlaced frame to the output bitstream
+  /**
+   * Decoded picture buffer management
+   */
+
+  // Writes reconstructed frames in the decoded picture buffer to the output
+  //   bitstream
+  Void xWriteOutput(TComList<TComPic*>* pcListPic);
+  
+  // Writes reconstructed frames in the decoded picture buffer to the output
+  //   bitstream
+  Void xFlushOutput(TComList<TComPic*>* pcListPic);
+
+  // Writes a raw reconstructed frame to the output bitstream
+  Void xWriteFrameToOutput(TComPic* frame);
+
+  // Writes a raw reconstructed interlaced frame to the output bitstream
   Void xWriteFrameToOutput(TComPic* field1, TComPic* field2);
-
-private:
-  Void applyColourRemapping(const TComPicYuv& pic, SEIColourRemappingInfo& pCriSEI, const TComSPS &activeSPS);
-  Void xOutputColourRemapPic(TComPic* pcPic);
 };
 
 

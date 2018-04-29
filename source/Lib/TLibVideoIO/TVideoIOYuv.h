@@ -83,7 +83,7 @@ public:
 
   Bool  isEof ();                                           ///< check for end-of-file
   Bool  isFail();                                           ///< check for failure
-
+  Bool  isOpen();                                           ///< check for open
 
 };
 

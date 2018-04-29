@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
   // Report errors
   Int returnCode = EXIT_SUCCESS;
-  if (transrater.getNumberOfChecksumErrorsDetected() != 0) {
+  if (transrater.numDecodingErrorsDetected() != 0) {
     printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
     return EXIT_FAILURE;
   }

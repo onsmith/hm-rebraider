@@ -179,6 +179,11 @@ Bool TVideoIOYuv::isFail()
   return m_cHandle.fail();
 }
 
+Bool TVideoIOYuv::isOpen()
+{
+  return m_cHandle.is_open();
+}
+
 /**
  * Skip numFrames in input.
  *
