@@ -205,7 +205,7 @@ Void TAppTraTop::transrate() {
 
       // Write reconstructed frames to output
       if (wasNewPictureFound) {
-        xWriteOutput(dpb);
+        xDisplayDecodedFrames(dpb);
       }
 
       if ((wasNewPictureFound || nalu.isCRASlice()) && m_decoder.getNoOutputPriorPicsFlag()) {
@@ -216,25 +216,25 @@ Void TAppTraTop::transrate() {
       // Flush output frames when IDR or BLA NAL units are encountered
       // TODO: Why don't we include CRA NAL units here?
       if (wasNewPictureFound && (nalu.isIDRSlice() || nalu.isBLASlice())) {
-        xFlushOutput(dpb);
+        xFlushPictureBuffer(dpb);
       }
 
       // Handle end of sequence (EOS) NAL units
       if (nalu.isEOS()) {
-        xWriteOutput(dpb);
+        xDisplayDecodedFrames(dpb);
         m_decoder.setFirstSliceInPicture(false);
       }
 
       // Write reconstructed frames to output
       //   Note: This is for additional bumping as defined in C.5.2.3
       if (!wasNewPictureFound && nalu.m_nalUnitType >= NAL_UNIT_CODED_SLICE_TRAIL_N && nalu.m_nalUnitType <= NAL_UNIT_RESERVED_VCL31) {
-        xWriteOutput(dpb);
+        xDisplayDecodedFrames(dpb);
       }
     }
   }
 
   // Send any remaining pictures to output
-  xFlushOutput(dpb);
+  xFlushPictureBuffer(dpb);
 
   // Free decoder resources
   m_decoder.deletePicBuffer();
@@ -310,18 +310,17 @@ Void TAppTraTop::xConfigEncoder() {
 
 
 /**
- * Writes complete, reconstructed pictures in the decoded picture buffer to
- *   the output file.
+ * Writes reconstructed frames in the decoded picture buffer to the output
+ *   bitstream
  *
- * \param pcListPic  list of pictures to be written to file
- * \param tId        temporal sub-layer ID
+ * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic) {
-  if (pcListPic == nullptr || pcListPic->empty()) {
+Void TAppTraTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
+  if (dpb == nullptr || dpb->empty()) {
     return;
   }
 
-  const TComSPS* sps              = &(pcListPic->front()->getPicSym()->getSPS());
+  const TComSPS* sps              = &(dpb->front()->getPicSym()->getSPS());
         UInt     maxTemporalLayer = sps->getMaxTLayers();
 
   // TODO: Write description for this variable
@@ -347,7 +346,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic) {
 
   // Loop through picture buffer to calculate numDecodedBufferedPictures and
   //   numPicsNotYetDisplayed
-  for (auto p = pcListPic->begin(); p != pcListPic->end(); p++) {
+  for (auto p = dpb->begin(); p != dpb->end(); p++) {
     TComPic* pic = *p;
     if (pic->getOutputMark() && pic->getPOC() > m_lastOutputPOC) {
       numPicsNotYetDisplayed++;
@@ -357,7 +356,7 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic) {
     }
   }
 
-  auto iterPic = pcListPic->begin();
+  auto iterPic = dpb->begin();
 
   if (numPicsNotYetDisplayed > 2) {
     iterPic++;
@@ -367,9 +366,9 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic) {
   
   // Interlaced field output
   if (numPicsNotYetDisplayed > 2 && pcPic->isField()) {
-    auto endPic = pcListPic->end();
+    auto endPic = dpb->end();
     endPic--;
-    iterPic = pcListPic->begin();
+    iterPic = dpb->begin();
 
     while (iterPic != endPic) {
       TComPic* pcPicTop = *iterPic;
@@ -434,55 +433,57 @@ Void TAppTraTop::xWriteOutput(TComList<TComPic*>* pcListPic) {
 
   // Frame output
   } else if (!pcPic->isField()) {
-    iterPic = pcListPic->begin();
+    iterPic = dpb->begin();
 
-    while (iterPic != pcListPic->end()) {
-      pcPic = *(iterPic);
+    for (auto p = dpb->begin(); p != dpb->end(); p++) {
+      TComPic* pic = *p;
 
       Bool isBufferFull = (
-        numPicsNotYetDisplayed > maxNumReorderedPics ||
+        numPicsNotYetDisplayed     > maxNumReorderedPics ||
         numDecodedBufferedPictures > maxNumBufferedPics
       );
 
       // Write frame to output file
-      if (pcPic->getOutputMark() && isBufferFull) {
+      if (pic->getOutputMark() && isBufferFull) {
         numPicsNotYetDisplayed--;
 
-        if (!pcPic->getSlice(0)->isReferenced()) {
+        if (!pic->getSlice(0)->isReferenced()) {
           numDecodedBufferedPictures--;
         }
 
-        xWriteFrameToOutput(pcPic);
+        xWriteFrameToOutput(pic);
 
         // Update last displayed picture index
-        m_lastOutputPOC = pcPic->getPOC();
+        m_lastOutputPOC = pic->getPOC();
 
-        // Mark non-referenced fields so they can be reused by the decoder
-        if (!pcPic->getSlice(0)->isReferenced() && pcPic->getReconMark()) {
-          pcPic->setReconMark(false);
-          pcPic->getPicYuvRec()->setBorderExtension(false);
+        // Mark the frame so it can be reused by the decoder
+        if (!pic->getSlice(0)->isReferenced() && pic->getReconMark()) {
+          pic->setReconMark(false);
+          pic->getPicYuvRec()->setBorderExtension(false);
         }
 
-        pcPic->setOutputMark(false);
+        pic->setOutputMark(false);
       }
-
-      iterPic++;
     }
   }
 }
 
 
-/** \param pcListPic list of pictures to be written to file
+/**
+ * Writes reconstructed frames in the decoded picture buffer to the output
+ *   bitstream and flushes the buffer
+ *
+ * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
-  if (pcListPic == nullptr || pcListPic->empty()) {
+Void TAppTraTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
+  if (dpb == nullptr || dpb->empty()) {
     return;
   }
 
   // Interlaced field output
-  if (pcListPic->front()->isField()) {
-    auto     iterPic     = pcListPic->begin();
-    auto     endPic      = pcListPic->end();
+  if (dpb->front()->isField()) {
+    auto     iterPic     = dpb->begin();
+    auto     endPic      = dpb->end();
     TComPic* pcPic       = *iterPic;
     TComPic* pcPicTop;
     TComPic* pcPicBottom = NULL;
@@ -541,7 +542,7 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
 
   // Frame output
   else {
-    for (auto p = pcListPic->begin(); p != pcListPic->end(); p++) {
+    for (auto p = dpb->begin(); p != dpb->end(); p++) {
       TComPic* pic = *p;
 
       if (pic->getOutputMark()) {
@@ -572,7 +573,7 @@ Void TAppTraTop::xFlushOutput(TComList<TComPic*>* pcListPic) {
   }
 
   // Clear decoded picture buffer
-  pcListPic->clear();
+  dpb->clear();
 
   // Reset last displayed index
   m_lastOutputPOC = -MAX_INT;

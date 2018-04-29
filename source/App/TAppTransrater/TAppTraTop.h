@@ -130,11 +130,11 @@ protected:
 
   // Writes reconstructed frames in the decoded picture buffer to the output
   //   bitstream
-  Void xWriteOutput(TComList<TComPic*>* pcListPic);
+  Void xDisplayDecodedFrames(TComList<TComPic*>* pcListPic);
   
   // Writes reconstructed frames in the decoded picture buffer to the output
-  //   bitstream
-  Void xFlushOutput(TComList<TComPic*>* pcListPic);
+  //   bitstream and flushes the buffer
+  Void xFlushPictureBuffer(TComList<TComPic*>* pcListPic);
 
   // Writes a raw reconstructed frame to the output bitstream
   Void xWriteFrameToOutput(TComPic* frame);
