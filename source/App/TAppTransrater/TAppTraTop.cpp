@@ -330,6 +330,365 @@ Void TAppTraTop::xConfigDecoder() {
  * Transfers the current configuration to the encoder object
  */
 Void TAppTraTop::xConfigEncoder() {
+  TComVPS vps;
+
+  vps.setMaxTLayers(m_maxTempLayer);
+  if (m_maxTempLayer == 1) {
+    vps.setTemporalNestingFlag(true);
+  }
+  vps.setMaxLayers(1);
+  for (Int i = 0; i < MAX_TLAYER; i++) {
+    vps.setNumReorderPics                                         ( m_numReorderPics[i], i );
+    vps.setMaxDecPicBuffering                                     ( m_maxDecPicBuffering[i], i );
+  }
+  m_encoder.setVPS(&vps);
+
+  m_encoder.setProfile                                           ( m_profile);
+  m_encoder.setLevel                                             ( m_levelTier, m_level);
+  m_encoder.setProgressiveSourceFlag                             ( m_progressiveSourceFlag);
+  m_encoder.setInterlacedSourceFlag                              ( m_interlacedSourceFlag);
+  m_encoder.setNonPackedConstraintFlag                           ( m_nonPackedConstraintFlag);
+  m_encoder.setFrameOnlyConstraintFlag                           ( m_frameOnlyConstraintFlag);
+  m_encoder.setBitDepthConstraintValue                           ( m_bitDepthConstraint );
+  m_encoder.setChromaFormatConstraintValue                       ( m_chromaFormatConstraint );
+  m_encoder.setIntraConstraintFlag                               ( m_intraConstraintFlag );
+  m_encoder.setOnePictureOnlyConstraintFlag                      ( m_onePictureOnlyConstraintFlag );
+  m_encoder.setLowerBitRateConstraintFlag                        ( m_lowerBitRateConstraintFlag );
+
+  m_encoder.setPrintMSEBasedSequencePSNR                         ( m_printMSEBasedSequencePSNR);
+  m_encoder.setPrintFrameMSE                                     ( m_printFrameMSE);
+  m_encoder.setPrintSequenceMSE                                  ( m_printSequenceMSE);
+#if JVET_F0064_MSSSIM
+  m_encoder.setPrintMSSSIM                                       ( m_printMSSSIM );
+#endif
+  m_encoder.setCabacZeroWordPaddingEnabled                       ( m_cabacZeroWordPaddingEnabled );
+
+  m_encoder.setFrameRate                                         ( m_iFrameRate );
+  m_encoder.setFrameSkip                                         ( m_FrameSkip );
+  m_encoder.setTemporalSubsampleRatio                            ( m_temporalSubsampleRatio );
+  m_encoder.setSourceWidth                                       ( m_iSourceWidth );
+  m_encoder.setSourceHeight                                      ( m_iSourceHeight );
+  m_encoder.setConformanceWindow                                 ( m_confWinLeft, m_confWinRight, m_confWinTop, m_confWinBottom );
+  m_encoder.setFramesToBeEncoded                                 ( m_framesToBeEncoded );
+
+  //====== Coding Structure ========
+  m_encoder.setIntraPeriod                                       ( m_iIntraPeriod );
+  m_encoder.setDecodingRefreshType                               ( m_iDecodingRefreshType );
+  m_encoder.setGOPSize                                           ( m_iGOPSize );
+#if JCTVC_Y0038_PARAMS
+  m_encoder.setReWriteParamSetsFlag                              ( m_bReWriteParamSetsFlag );
+#endif
+  m_encoder.setGopList                                           ( m_GOPList );
+  m_encoder.setExtraRPSs                                         ( m_extraRPSs );
+  for(Int i = 0; i < MAX_TLAYER; i++)
+  {
+    m_encoder.setNumReorderPics                                  ( m_numReorderPics[i], i );
+    m_encoder.setMaxDecPicBuffering                              ( m_maxDecPicBuffering[i], i );
+  }
+  for( UInt uiLoop = 0; uiLoop < MAX_TLAYER; ++uiLoop )
+  {
+    m_encoder.setLambdaModifier                                  ( uiLoop, m_adLambdaModifier[ uiLoop ] );
+  }
+  m_encoder.setIntraLambdaModifier                               ( m_adIntraLambdaModifier );
+  m_encoder.setIntraQpFactor                                     ( m_dIntraQpFactor );
+
+  m_encoder.setQP                                                ( m_iQP );
+
+#if X0038_LAMBDA_FROM_QP_CAPABILITY
+  m_encoder.setIntraQPOffset                                     ( m_intraQPOffset );
+  m_encoder.setLambdaFromQPEnable                                ( m_lambdaFromQPEnable );
+#endif
+  m_encoder.setPad                                               ( m_aiPad );
+
+  m_encoder.setAccessUnitDelimiter                               ( m_AccessUnitDelimiter );
+
+  m_encoder.setMaxTempLayer                                      ( m_maxTempLayer );
+  m_encoder.setUseAMP( m_enableAMP );
+
+  //===== Slice ========
+
+  //====== Loop/Deblock Filter ========
+  m_encoder.setLoopFilterDisable                                 ( m_bLoopFilterDisable       );
+  m_encoder.setLoopFilterOffsetInPPS                             ( m_loopFilterOffsetInPPS );
+  m_encoder.setLoopFilterBetaOffset                              ( m_loopFilterBetaOffsetDiv2  );
+  m_encoder.setLoopFilterTcOffset                                ( m_loopFilterTcOffsetDiv2    );
+  m_encoder.setDeblockingFilterMetric                            ( m_deblockingFilterMetric );
+
+  //====== Motion search ========
+  m_encoder.setDisableIntraPUsInInterSlices                      ( m_bDisableIntraPUsInInterSlices );
+  m_encoder.setMotionEstimationSearchMethod                      ( m_motionEstimationSearchMethod  );
+  m_encoder.setSearchRange                                       ( m_iSearchRange );
+  m_encoder.setBipredSearchRange                                 ( m_bipredSearchRange );
+  m_encoder.setClipForBiPredMeEnabled                            ( m_bClipForBiPredMeEnabled );
+  m_encoder.setFastMEAssumingSmootherMVEnabled                   ( m_bFastMEAssumingSmootherMVEnabled );
+  m_encoder.setMinSearchWindow                                   ( m_minSearchWindow );
+  m_encoder.setRestrictMESampling                                ( m_bRestrictMESampling );
+
+  //====== Quality control ========
+  m_encoder.setMaxDeltaQP                                        ( m_iMaxDeltaQP  );
+  m_encoder.setMaxCuDQPDepth                                     ( m_iMaxCuDQPDepth  );
+  m_encoder.setDiffCuChromaQpOffsetDepth                         ( m_diffCuChromaQpOffsetDepth );
+  m_encoder.setChromaCbQpOffset                                  ( m_cbQpOffset     );
+  m_encoder.setChromaCrQpOffset                                  ( m_crQpOffset  );
+  m_encoder.setWCGChromaQpControl                                ( m_wcgChromaQpControl );
+  m_encoder.setSliceChromaOffsetQpIntraOrPeriodic                ( m_sliceChromaQpOffsetPeriodicity, m_sliceChromaQpOffsetIntraOrPeriodic );
+  m_encoder.setChromaFormatIdc                                   ( m_chromaFormatIDC  );
+
+#if ADAPTIVE_QP_SELECTION
+  m_encoder.setUseAdaptQpSelect                                  ( m_bUseAdaptQpSelect   );
+#endif
+
+  m_encoder.setUseAdaptiveQP                                     ( m_bUseAdaptiveQP  );
+  m_encoder.setQPAdaptationRange                                 ( m_iQPAdaptationRange );
+  m_encoder.setExtendedPrecisionProcessingFlag                   ( m_extendedPrecisionProcessingFlag );
+  m_encoder.setHighPrecisionOffsetsEnabledFlag                   ( m_highPrecisionOffsetsEnabledFlag );
+
+  m_encoder.setWeightedPredictionMethod( m_weightedPredictionMethod );
+
+  //====== Tool list ========
+  m_encoder.setLumaLevelToDeltaQPControls                        ( m_lumaLevelToDeltaQPMapping );
+#if X0038_LAMBDA_FROM_QP_CAPABILITY
+  m_encoder.setDeltaQpRD( (m_costMode==COST_LOSSLESS_CODING) ? 0 : m_uiDeltaQpRD );
+#else
+  m_encoder.setDeltaQpRD                                         ( m_uiDeltaQpRD  );
+#endif
+  m_encoder.setFastDeltaQp                                       ( m_bFastDeltaQP  );
+  m_encoder.setUseASR                                            ( m_bUseASR      );
+  m_encoder.setUseHADME                                          ( m_bUseHADME    );
+  m_encoder.setdQPs                                              ( m_aidQP        );
+  m_encoder.setUseRDOQ                                           ( m_useRDOQ     );
+  m_encoder.setUseRDOQTS                                         ( m_useRDOQTS   );
+  m_encoder.setUseSelectiveRDOQ                                  ( m_useSelectiveRDOQ );
+  m_encoder.setRDpenalty                                         ( m_rdPenalty );
+  m_encoder.setMaxCUWidth                                        ( m_uiMaxCUWidth );
+  m_encoder.setMaxCUHeight                                       ( m_uiMaxCUHeight );
+  m_encoder.setMaxTotalCUDepth                                   ( m_uiMaxTotalCUDepth );
+  m_encoder.setLog2DiffMaxMinCodingBlockSize                     ( m_uiLog2DiffMaxMinCodingBlockSize );
+  m_encoder.setQuadtreeTULog2MaxSize                             ( m_uiQuadtreeTULog2MaxSize );
+  m_encoder.setQuadtreeTULog2MinSize                             ( m_uiQuadtreeTULog2MinSize );
+  m_encoder.setQuadtreeTUMaxDepthInter                           ( m_uiQuadtreeTUMaxDepthInter );
+  m_encoder.setQuadtreeTUMaxDepthIntra                           ( m_uiQuadtreeTUMaxDepthIntra );
+  m_encoder.setFastInterSearchMode                               ( m_fastInterSearchMode );
+  m_encoder.setUseEarlyCU                                        ( m_bUseEarlyCU  );
+  m_encoder.setUseFastDecisionForMerge                           ( m_useFastDecisionForMerge  );
+  m_encoder.setUseCbfFastMode                                    ( m_bUseCbfFastMode  );
+  m_encoder.setUseEarlySkipDetection                             ( m_useEarlySkipDetection );
+  m_encoder.setCrossComponentPredictionEnabledFlag               ( m_crossComponentPredictionEnabledFlag );
+  m_encoder.setUseReconBasedCrossCPredictionEstimate             ( m_reconBasedCrossCPredictionEstimate );
+  m_encoder.setLog2SaoOffsetScale                                ( CHANNEL_TYPE_LUMA  , m_log2SaoOffsetScale[CHANNEL_TYPE_LUMA]   );
+  m_encoder.setLog2SaoOffsetScale                                ( CHANNEL_TYPE_CHROMA, m_log2SaoOffsetScale[CHANNEL_TYPE_CHROMA] );
+  m_encoder.setUseTransformSkip                                  ( m_useTransformSkip      );
+  m_encoder.setUseTransformSkipFast                              ( m_useTransformSkipFast  );
+  m_encoder.setTransformSkipRotationEnabledFlag                  ( m_transformSkipRotationEnabledFlag );
+  m_encoder.setTransformSkipContextEnabledFlag                   ( m_transformSkipContextEnabledFlag   );
+  m_encoder.setPersistentRiceAdaptationEnabledFlag               ( m_persistentRiceAdaptationEnabledFlag );
+  m_encoder.setCabacBypassAlignmentEnabledFlag                   ( m_cabacBypassAlignmentEnabledFlag );
+  m_encoder.setLog2MaxTransformSkipBlockSize                     ( m_log2MaxTransformSkipBlockSize  );
+  for (UInt signallingModeIndex = 0; signallingModeIndex < NUMBER_OF_RDPCM_SIGNALLING_MODES; signallingModeIndex++)
+  {
+    m_encoder.setRdpcmEnabledFlag                                ( RDPCMSignallingMode(signallingModeIndex), m_rdpcmEnabledFlag[signallingModeIndex]);
+  }
+  m_encoder.setUseConstrainedIntraPred                           ( m_bUseConstrainedIntraPred );
+  m_encoder.setFastUDIUseMPMEnabled                              ( m_bFastUDIUseMPMEnabled );
+  m_encoder.setFastMEForGenBLowDelayEnabled                      ( m_bFastMEForGenBLowDelayEnabled );
+  m_encoder.setUseBLambdaForNonKeyLowDelayPictures               ( m_bUseBLambdaForNonKeyLowDelayPictures );
+  m_encoder.setPCMLog2MinSize                                    ( m_uiPCMLog2MinSize);
+  m_encoder.setUsePCM                                            ( m_usePCM );
+
+  // set internal bit-depth and constants
+  for (UInt channelType = 0; channelType < MAX_NUM_CHANNEL_TYPE; channelType++)
+  {
+    m_encoder.setBitDepth((ChannelType)channelType, m_internalBitDepth[channelType]);
+    m_encoder.setPCMBitDepth((ChannelType)channelType, m_bPCMInputBitDepthFlag ? m_MSBExtendedBitDepth[channelType] : m_internalBitDepth[channelType]);
+  }
+
+  m_encoder.setPCMLog2MaxSize                                    ( m_pcmLog2MaxSize);
+  m_encoder.setMaxNumMergeCand                                   ( m_maxNumMergeCand );
+
+
+  //====== Weighted Prediction ========
+  m_encoder.setUseWP                                             ( m_useWeightedPred     );
+  m_encoder.setWPBiPred                                          ( m_useWeightedBiPred   );
+
+  //====== Parallel Merge Estimation ========
+  m_encoder.setLog2ParallelMergeLevelMinus2                      ( m_log2ParallelMergeLevel - 2 );
+
+  //====== Slice ========
+  m_encoder.setSliceMode                                         ( m_sliceMode );
+  m_encoder.setSliceArgument                                     ( m_sliceArgument );
+
+  //====== Dependent Slice ========
+  m_encoder.setSliceSegmentMode                                  ( m_sliceSegmentMode );
+  m_encoder.setSliceSegmentArgument                              ( m_sliceSegmentArgument );
+
+  if(m_sliceMode == NO_SLICES )
+  {
+    m_bLFCrossSliceBoundaryFlag = true;
+  }
+  m_encoder.setLFCrossSliceBoundaryFlag                          ( m_bLFCrossSliceBoundaryFlag );
+  m_encoder.setUseSAO                                            ( m_bUseSAO );
+  m_encoder.setTestSAODisableAtPictureLevel                      ( m_bTestSAODisableAtPictureLevel );
+  m_encoder.setSaoEncodingRate                                   ( m_saoEncodingRate );
+  m_encoder.setSaoEncodingRateChroma                             ( m_saoEncodingRateChroma );
+  m_encoder.setMaxNumOffsetsPerPic                               ( m_maxNumOffsetsPerPic);
+
+  m_encoder.setSaoCtuBoundary                                    ( m_saoCtuBoundary);
+  m_encoder.setSaoResetEncoderStateAfterIRAP                     ( m_saoResetEncoderStateAfterIRAP);
+  m_encoder.setPCMInputBitDepthFlag                              ( m_bPCMInputBitDepthFlag);
+  m_encoder.setPCMFilterDisableFlag                              ( m_bPCMFilterDisableFlag);
+
+  m_encoder.setIntraSmoothingDisabledFlag                        (!m_enableIntraReferenceSmoothing );
+  m_encoder.setDecodedPictureHashSEIType                         ( m_decodedPictureHashSEIType );
+  m_encoder.setRecoveryPointSEIEnabled                           ( m_recoveryPointSEIEnabled );
+  m_encoder.setBufferingPeriodSEIEnabled                         ( m_bufferingPeriodSEIEnabled );
+  m_encoder.setPictureTimingSEIEnabled                           ( m_pictureTimingSEIEnabled );
+  m_encoder.setToneMappingInfoSEIEnabled                         ( m_toneMappingInfoSEIEnabled );
+  m_encoder.setTMISEIToneMapId                                   ( m_toneMapId );
+  m_encoder.setTMISEIToneMapCancelFlag                           ( m_toneMapCancelFlag );
+  m_encoder.setTMISEIToneMapPersistenceFlag                      ( m_toneMapPersistenceFlag );
+  m_encoder.setTMISEICodedDataBitDepth                           ( m_toneMapCodedDataBitDepth );
+  m_encoder.setTMISEITargetBitDepth                              ( m_toneMapTargetBitDepth );
+  m_encoder.setTMISEIModelID                                     ( m_toneMapModelId );
+  m_encoder.setTMISEIMinValue                                    ( m_toneMapMinValue );
+  m_encoder.setTMISEIMaxValue                                    ( m_toneMapMaxValue );
+  m_encoder.setTMISEISigmoidMidpoint                             ( m_sigmoidMidpoint );
+  m_encoder.setTMISEISigmoidWidth                                ( m_sigmoidWidth );
+  m_encoder.setTMISEIStartOfCodedInterva                         ( m_startOfCodedInterval );
+  m_encoder.setTMISEINumPivots                                   ( m_numPivots );
+  m_encoder.setTMISEICodedPivotValue                             ( m_codedPivotValue );
+  m_encoder.setTMISEITargetPivotValue                            ( m_targetPivotValue );
+  m_encoder.setTMISEICameraIsoSpeedIdc                           ( m_cameraIsoSpeedIdc );
+  m_encoder.setTMISEICameraIsoSpeedValue                         ( m_cameraIsoSpeedValue );
+  m_encoder.setTMISEIExposureIndexIdc                            ( m_exposureIndexIdc );
+  m_encoder.setTMISEIExposureIndexValue                          ( m_exposureIndexValue );
+  m_encoder.setTMISEIExposureCompensationValueSignFlag           ( m_exposureCompensationValueSignFlag );
+  m_encoder.setTMISEIExposureCompensationValueNumerator          ( m_exposureCompensationValueNumerator );
+  m_encoder.setTMISEIExposureCompensationValueDenomIdc           ( m_exposureCompensationValueDenomIdc );
+  m_encoder.setTMISEIRefScreenLuminanceWhite                     ( m_refScreenLuminanceWhite );
+  m_encoder.setTMISEIExtendedRangeWhiteLevel                     ( m_extendedRangeWhiteLevel );
+  m_encoder.setTMISEINominalBlackLevelLumaCodeValue              ( m_nominalBlackLevelLumaCodeValue );
+  m_encoder.setTMISEINominalWhiteLevelLumaCodeValue              ( m_nominalWhiteLevelLumaCodeValue );
+  m_encoder.setTMISEIExtendedWhiteLevelLumaCodeValue             ( m_extendedWhiteLevelLumaCodeValue );
+  m_encoder.setChromaResamplingFilterHintEnabled                 ( m_chromaResamplingFilterSEIenabled );
+  m_encoder.setChromaResamplingHorFilterIdc                      ( m_chromaResamplingHorFilterIdc );
+  m_encoder.setChromaResamplingVerFilterIdc                      ( m_chromaResamplingVerFilterIdc );
+  m_encoder.setFramePackingArrangementSEIEnabled                 ( m_framePackingSEIEnabled );
+  m_encoder.setFramePackingArrangementSEIType                    ( m_framePackingSEIType );
+  m_encoder.setFramePackingArrangementSEIId                      ( m_framePackingSEIId );
+  m_encoder.setFramePackingArrangementSEIQuincunx                ( m_framePackingSEIQuincunx );
+  m_encoder.setFramePackingArrangementSEIInterpretation          ( m_framePackingSEIInterpretation );
+  m_encoder.setSegmentedRectFramePackingArrangementSEIEnabled    ( m_segmentedRectFramePackingSEIEnabled );
+  m_encoder.setSegmentedRectFramePackingArrangementSEICancel     ( m_segmentedRectFramePackingSEICancel );
+  m_encoder.setSegmentedRectFramePackingArrangementSEIType       ( m_segmentedRectFramePackingSEIType );
+  m_encoder.setSegmentedRectFramePackingArrangementSEIPersistence( m_segmentedRectFramePackingSEIPersistence );
+  m_encoder.setDisplayOrientationSEIAngle                        ( m_displayOrientationSEIAngle );
+  m_encoder.setTemporalLevel0IndexSEIEnabled                     ( m_temporalLevel0IndexSEIEnabled );
+  m_encoder.setGradualDecodingRefreshInfoEnabled                 ( m_gradualDecodingRefreshInfoEnabled );
+  m_encoder.setNoDisplaySEITLayer                                ( m_noDisplaySEITLayer );
+  m_encoder.setDecodingUnitInfoSEIEnabled                        ( m_decodingUnitInfoSEIEnabled );
+  m_encoder.setSOPDescriptionSEIEnabled                          ( m_SOPDescriptionSEIEnabled );
+  m_encoder.setScalableNestingSEIEnabled                         ( m_scalableNestingSEIEnabled );
+  m_encoder.setTMCTSSEIEnabled                                   ( m_tmctsSEIEnabled );
+#if MCTS_ENC_CHECK
+  m_encoder.setTMCTSSEITileConstraint                            ( m_tmctsSEITileConstraint );
+#endif
+  m_encoder.setTimeCodeSEIEnabled                                ( m_timeCodeSEIEnabled );
+  m_encoder.setNumberOfTimeSets                                  ( m_timeCodeSEINumTs );
+  for(Int i = 0; i < m_timeCodeSEINumTs; i++)
+  {
+    m_encoder.setTimeSet(m_timeSetArray[i], i);
+  }
+  m_encoder.setKneeSEIEnabled                                    ( m_kneeSEIEnabled );
+  m_encoder.setKneeSEIId                                         ( m_kneeSEIId );
+  m_encoder.setKneeSEICancelFlag                                 ( m_kneeSEICancelFlag );
+  m_encoder.setKneeSEIPersistenceFlag                            ( m_kneeSEIPersistenceFlag );
+  m_encoder.setKneeSEIInputDrange                                ( m_kneeSEIInputDrange );
+  m_encoder.setKneeSEIInputDispLuminance                         ( m_kneeSEIInputDispLuminance );
+  m_encoder.setKneeSEIOutputDrange                               ( m_kneeSEIOutputDrange );
+  m_encoder.setKneeSEIOutputDispLuminance                        ( m_kneeSEIOutputDispLuminance );
+  m_encoder.setKneeSEINumKneePointsMinus1                        ( m_kneeSEINumKneePointsMinus1 );
+  m_encoder.setKneeSEIInputKneePoint                             ( m_kneeSEIInputKneePoint );
+  m_encoder.setKneeSEIOutputKneePoint                            ( m_kneeSEIOutputKneePoint );
+  m_encoder.setColourRemapInfoSEIFileRoot                        ( m_colourRemapSEIFileRoot );
+  m_encoder.setMasteringDisplaySEI                               ( m_masteringDisplay );
+  m_encoder.setSEIAlternativeTransferCharacteristicsSEIEnable    ( m_preferredTransferCharacteristics>=0     );
+  m_encoder.setSEIPreferredTransferCharacteristics               ( UChar(m_preferredTransferCharacteristics) );
+  m_encoder.setSEIGreenMetadataInfoSEIEnable                     ( m_greenMetadataType > 0 );
+  m_encoder.setSEIGreenMetadataType                              ( UChar(m_greenMetadataType) );
+  m_encoder.setSEIXSDMetricType                                  ( UChar(m_xsdMetricType) );
+
+  m_encoder.setTileUniformSpacingFlag                            ( m_tileUniformSpacingFlag );
+  m_encoder.setNumColumnsMinus1                                  ( m_numTileColumnsMinus1 );
+  m_encoder.setNumRowsMinus1                                     ( m_numTileRowsMinus1 );
+  if(!m_tileUniformSpacingFlag)
+  {
+    m_encoder.setColumnWidth                                     ( m_tileColumnWidth );
+    m_encoder.setRowHeight                                       ( m_tileRowHeight );
+  }
+  m_encoder.xCheckGSParameters();
+  Int uiTilesCount = (m_numTileRowsMinus1+1) * (m_numTileColumnsMinus1+1);
+  if(uiTilesCount == 1)
+  {
+    m_bLFCrossTileBoundaryFlag = true;
+  }
+  m_encoder.setLFCrossTileBoundaryFlag                           ( m_bLFCrossTileBoundaryFlag );
+  m_encoder.setEntropyCodingSyncEnabledFlag                      ( m_entropyCodingSyncEnabledFlag );
+  m_encoder.setTMVPModeId                                        ( m_TMVPModeId );
+  m_encoder.setUseScalingListId                                  ( m_useScalingListId  );
+  m_encoder.setScalingListFileName                               ( m_scalingListFileName );
+  m_encoder.setSignDataHidingEnabledFlag                         ( m_signDataHidingEnabledFlag);
+  m_encoder.setUseRateCtrl                                       ( m_RCEnableRateControl );
+  m_encoder.setTargetBitrate                                     ( m_RCTargetBitrate );
+  m_encoder.setKeepHierBit                                       ( m_RCKeepHierarchicalBit );
+  m_encoder.setLCULevelRC                                        ( m_RCLCULevelRC );
+  m_encoder.setUseLCUSeparateModel                               ( m_RCUseLCUSeparateModel );
+  m_encoder.setInitialQP                                         ( m_RCInitialQP );
+  m_encoder.setForceIntraQP                                      ( m_RCForceIntraQP );
+  m_encoder.setCpbSaturationEnabled                              ( m_RCCpbSaturationEnabled );
+  m_encoder.setCpbSize                                           ( m_RCCpbSize );
+  m_encoder.setInitialCpbFullness                                ( m_RCInitialCpbFullness );
+  m_encoder.setTransquantBypassEnabledFlag                       ( m_TransquantBypassEnabledFlag );
+  m_encoder.setCUTransquantBypassFlagForceValue                  ( m_CUTransquantBypassFlagForce );
+  m_encoder.setCostMode                                          ( m_costMode );
+  m_encoder.setUseRecalculateQPAccordingToLambda                 ( m_recalculateQPAccordingToLambda );
+  m_encoder.setUseStrongIntraSmoothing                           ( m_useStrongIntraSmoothing );
+  m_encoder.setActiveParameterSetsSEIEnabled                     ( m_activeParameterSetsSEIEnabled );
+  m_encoder.setVuiParametersPresentFlag                          ( m_vuiParametersPresentFlag );
+  m_encoder.setAspectRatioInfoPresentFlag                        ( m_aspectRatioInfoPresentFlag);
+  m_encoder.setAspectRatioIdc                                    ( m_aspectRatioIdc );
+  m_encoder.setSarWidth                                          ( m_sarWidth );
+  m_encoder.setSarHeight                                         ( m_sarHeight );
+  m_encoder.setOverscanInfoPresentFlag                           ( m_overscanInfoPresentFlag );
+  m_encoder.setOverscanAppropriateFlag                           ( m_overscanAppropriateFlag );
+  m_encoder.setVideoSignalTypePresentFlag                        ( m_videoSignalTypePresentFlag );
+  m_encoder.setVideoFormat                                       ( m_videoFormat );
+  m_encoder.setVideoFullRangeFlag                                ( m_videoFullRangeFlag );
+  m_encoder.setColourDescriptionPresentFlag                      ( m_colourDescriptionPresentFlag );
+  m_encoder.setColourPrimaries                                   ( m_colourPrimaries );
+  m_encoder.setTransferCharacteristics                           ( m_transferCharacteristics );
+  m_encoder.setMatrixCoefficients                                ( m_matrixCoefficients );
+  m_encoder.setChromaLocInfoPresentFlag                          ( m_chromaLocInfoPresentFlag );
+  m_encoder.setChromaSampleLocTypeTopField                       ( m_chromaSampleLocTypeTopField );
+  m_encoder.setChromaSampleLocTypeBottomField                    ( m_chromaSampleLocTypeBottomField );
+  m_encoder.setNeutralChromaIndicationFlag                       ( m_neutralChromaIndicationFlag );
+  m_encoder.setDefaultDisplayWindow                              ( m_defDispWinLeftOffset, m_defDispWinRightOffset, m_defDispWinTopOffset, m_defDispWinBottomOffset );
+  m_encoder.setFrameFieldInfoPresentFlag                         ( m_frameFieldInfoPresentFlag );
+  m_encoder.setPocProportionalToTimingFlag                       ( m_pocProportionalToTimingFlag );
+  m_encoder.setNumTicksPocDiffOneMinus1                          ( m_numTicksPocDiffOneMinus1    );
+  m_encoder.setBitstreamRestrictionFlag                          ( m_bitstreamRestrictionFlag );
+  m_encoder.setTilesFixedStructureFlag                           ( m_tilesFixedStructureFlag );
+  m_encoder.setMotionVectorsOverPicBoundariesFlag                ( m_motionVectorsOverPicBoundariesFlag );
+  m_encoder.setMinSpatialSegmentationIdc                         ( m_minSpatialSegmentationIdc );
+  m_encoder.setMaxBytesPerPicDenom                               ( m_maxBytesPerPicDenom );
+  m_encoder.setMaxBitsPerMinCuDenom                              ( m_maxBitsPerMinCuDenom );
+  m_encoder.setLog2MaxMvLengthHorizontal                         ( m_log2MaxMvLengthHorizontal );
+  m_encoder.setLog2MaxMvLengthVertical                           ( m_log2MaxMvLengthVertical );
+  m_encoder.setEfficientFieldIRAPEnabled                         ( m_bEfficientFieldIRAPEnabled );
+  m_encoder.setHarmonizeGopFirstFieldCoupleEnabled               ( m_bHarmonizeGopFirstFieldCoupleEnabled );
+
+  m_encoder.setSummaryOutFilename                                ( m_summaryOutFilename );
+  m_encoder.setSummaryPicFilenameBase                            ( m_summaryPicFilenameBase );
+  m_encoder.setSummaryVerboseness                                ( m_summaryVerboseness );
 }
 
 

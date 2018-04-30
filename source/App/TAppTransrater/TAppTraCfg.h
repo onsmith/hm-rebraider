@@ -52,17 +52,23 @@
 #include <vector>
 
 
+using std::string;
+
+
 //! \ingroup TAppTransrater
 //! \{
 
 
 class TAppTraCfg {
 protected:
-  // Input compressed h265 bitstream file name
-  std::string m_inputFileName;
+  // Input compressed hevc bitstream file name
+  string m_inputFileName;
+
+  // Output compressed hevc bitstream file name
+  string m_outputFileName;
 
   // Output reconstruction file name
-  std::string m_reconFileName;
+  string m_reconFileName;
 
   // The number of frames before the random access point to skip
   Int m_iSkipFrame;
@@ -70,6 +76,7 @@ protected:
   // Bit depth for output pixel values of each channel
   Int m_outputBitDepth[MAX_NUM_CHANNEL_TYPE];
 
+  // Desired color space conversion
   InputColourSpaceConversion m_outputColourSpaceConvert;
 
   // Maximum temporal layer to be decoded
