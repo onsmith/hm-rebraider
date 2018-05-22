@@ -86,7 +86,7 @@ Void TAppTraTop::transrate() {
   // Picture order count
   Int poc;
 
-  // Decoded picture buffer
+  // Pointer to decoded picture buffer
   TComList<TComPic*>* dpb = NULL;
 
   // Open input h265 bitstream for reading source video
@@ -135,15 +135,16 @@ Void TAppTraTop::transrate() {
 
     // True if a new picture is found within the current NAL unit
     Bool wasNewPictureFound = false;
-
-    // Call decoding function
+    
+    /* Check for empty bitstream. This can happen if the following occur:
+     *  - empty input file
+     *  - two back-to-back start_code_prefixes
+     *  - start_code_prefix immediately followed by EOF
+     */
     if (nalu.getBitstream().getFifo().empty()) {
-      /* this can happen if the following occur:
-       *  - empty input file
-       *  - two back-to-back start_code_prefixes
-       *  - start_code_prefix immediately followed by EOF
-       */
       fprintf(stderr, "Warning: Attempt to decode an empty NAL unit\n");
+
+    // Parse nal unit header
     } else {
       read(nalu);
 
@@ -151,6 +152,7 @@ Void TAppTraTop::transrate() {
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
 
+      // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound =
           m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
