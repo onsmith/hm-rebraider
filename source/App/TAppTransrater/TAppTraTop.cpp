@@ -332,7 +332,7 @@ Void TAppTraTop::xConfigDecoder() {
  * Transfers the current configuration to the encoder object
  */
 Void TAppTraTop::xConfigEncoder() {
-  TComVPS vps;
+  /*TComVPS vps;
 
   vps.setMaxTLayers(m_maxTempLayer);
   if (m_maxTempLayer == 1) {
@@ -690,7 +690,7 @@ Void TAppTraTop::xConfigEncoder() {
 
   m_encoder.setSummaryOutFilename                                ( m_summaryOutFilename );
   m_encoder.setSummaryPicFilenameBase                            ( m_summaryPicFilenameBase );
-  m_encoder.setSummaryVerboseness                                ( m_summaryVerboseness );
+  m_encoder.setSummaryVerboseness                                ( m_summaryVerboseness );*/
 }
 
 
