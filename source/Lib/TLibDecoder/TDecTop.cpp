@@ -994,4 +994,21 @@ Bool TDecTop::isRandomAccessSkipPicture(Int& iSkipFrame,  Int& iPOCLastDisplay)
   return false;
 }
 
+
+/**
+ * Gets the current slice or nullptr if none exists
+ */
+TComSlice* TDecTop::getCurSlice() {
+  return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+}
+
+
+/**
+ * Gets the current slice or nullptr if none exists
+ */
+const TComSlice* TDecTop::getCurSlice() const {
+  return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+}
+
+
 //! \}

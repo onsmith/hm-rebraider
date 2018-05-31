@@ -1045,15 +1045,15 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
   switch (nalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
-      m_encoder.encode(nalu, m_decoder.getVPS());
+      m_encoder.encode(nalu, *m_decoder.getVPS());
       break;
 
     case NAL_UNIT_SPS:
-      m_encoder.encode(nalu, m_decoder.getSPS());
+      m_encoder.encode(nalu, *m_decoder.getSPS());
       break;
 
     case NAL_UNIT_PPS:
-      m_encoder.encode(nalu, m_decoder.getPPS());
+      m_encoder.encode(nalu, *m_decoder.getPPS());
       break;
 
     case NAL_UNIT_PREFIX_SEI:
@@ -1077,7 +1077,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
     case NAL_UNIT_CODED_SLICE_RADL_R:
     case NAL_UNIT_CODED_SLICE_RASL_N:
     case NAL_UNIT_CODED_SLICE_RASL_R:
-      m_encoder.encode(nalu, );
+      m_encoder.encode(nalu, *m_decoder.getCurSlice());
       break;
 
     case NAL_UNIT_EOS:

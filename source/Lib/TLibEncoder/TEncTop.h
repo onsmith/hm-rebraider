@@ -183,6 +183,10 @@ public:
 
   /// Reencode a nal unit
   Void encode(const InputNALUnit& nalu);
+  Void encode(const InputNALUnit& nalu, const TComSlice& slice);
+  Void encode(const InputNALUnit& nalu, const TComVPS&   vps);
+  Void encode(const InputNALUnit& nalu, const TComSPS&   sps);
+  Void encode(const InputNALUnit& nalu, const TComPPS&   pps);
 
 #if JVET_F0064_MSSSIM
   Void printSummary(Bool isField) { m_cGOPEncoder.printOutSummary (m_uiNumAllPicCoded, isField, m_printMSEBasedSequencePSNR, m_printSequenceMSE, m_printMSSSIM, m_spsMap.getFirstPS()->getBitDepths()); }

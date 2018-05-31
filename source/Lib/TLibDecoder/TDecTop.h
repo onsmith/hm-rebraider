@@ -150,6 +150,22 @@ public:
   Void  setDecodedSEIMessageOutputStream(std::ostream *pOpStream) { m_pDecodedSEIOutputStream = pOpStream; }
   UInt  getNumberOfChecksumErrorsDetected() const { return m_cGopDecoder.getNumberOfChecksumErrorsDetected(); }
 
+  // Gets the current slice or nullptr if none exists
+        TComSlice* getCurSlice();
+  const TComSlice* getCurSlice() const;
+
+  // Gets the VPS decoded for a given NAL unit or nullptr if none exists
+        TComVPS* getVPS();
+  const TComVPS* getVPS() const;
+
+  // Gets the SPS decoded for a given NAL unit or nullptr if none exists
+        TComSPS* getSPS();
+  const TComSPS* getSPS() const;
+
+  // Gets the PPS decoded for a given NAL unit or nullptr if none exists
+        TComPPS* getPPS();
+  const TComPPS* getPPS() const;
+
 protected:
   Void  xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);
   Void  xCreateLostPicture (Int iLostPOC);
