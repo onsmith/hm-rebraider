@@ -116,9 +116,15 @@ private:
 
 #if MCTS_ENC_CHECK
   Bool                    m_tmctsCheckEnabled;
-
 #endif
+
   std::list<InputNALUnit*> m_prefixSEINALUs; /// Buffered up prefix SEI NAL Units.
+
+  // Stores current VPS, SPS, and PPS IDs
+  Int m_iCurVpsId;
+  Int m_iCurSpsId;
+  Int m_iCurPpsId;
+
 public:
   TDecTop();
   virtual ~TDecTop();
@@ -154,17 +160,14 @@ public:
         TComSlice* getCurSlice();
   const TComSlice* getCurSlice() const;
 
-  // Gets the VPS decoded for a given NAL unit or nullptr if none exists
-        TComVPS* getVPS();
-  const TComVPS* getVPS() const;
+  // Gets the last-decoded VPS or nullptr if none exists
+  TComVPS* getVPS();
 
-  // Gets the SPS decoded for a given NAL unit or nullptr if none exists
-        TComSPS* getSPS();
-  const TComSPS* getSPS() const;
+  // Gets the last-decoded SPS or nullptr if none exists
+  TComSPS* getSPS();
 
-  // Gets the PPS decoded for a given NAL unit or nullptr if none exists
-        TComPPS* getPPS();
-  const TComPPS* getPPS() const;
+  // Gets the last-decoded PPS or nullptr if none exists
+  TComPPS* getPPS();
 
 protected:
   Void  xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);

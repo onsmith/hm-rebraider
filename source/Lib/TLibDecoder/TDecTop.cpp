@@ -83,6 +83,9 @@ TDecTop::TDecTop()
   , m_tmctsCheckEnabled(false)
 #endif
   , m_prefixSEINALUs()
+  , m_iCurVpsId(-1)
+  , m_iCurSpsId(-1)
+  , m_iCurPpsId(-1)
 {
 #if ENC_DEC_TRACE
   if (g_hTrace == NULL)
@@ -756,6 +759,7 @@ Void TDecTop::xDecodeVPS(const std::vector<UChar> &naluData)
 
   m_cEntropyDecoder.decodeVPS( vps );
   m_parameterSetManager.storeVPS(vps, naluData);
+  m_iCurVpsId = vps->getVPSId();
 }
 
 Void TDecTop::xDecodeSPS(const std::vector<UChar> &naluData)
@@ -766,6 +770,7 @@ Void TDecTop::xDecodeSPS(const std::vector<UChar> &naluData)
 #endif
   m_cEntropyDecoder.decodeSPS( sps );
   m_parameterSetManager.storeSPS(sps, naluData);
+  m_iCurSpsId = sps->getSPSId();
 }
 
 Void TDecTop::xDecodePPS(const std::vector<UChar> &naluData)
@@ -773,6 +778,7 @@ Void TDecTop::xDecodePPS(const std::vector<UChar> &naluData)
   TComPPS* pps = new TComPPS();
   m_cEntropyDecoder.decodePPS( pps );
   m_parameterSetManager.storePPS( pps, naluData);
+  m_iCurPpsId = pps->getPPSId();
 }
 
 Bool TDecTop::decode(InputNALUnit& nalu, Int& iSkipFrame, Int& iPOCLastDisplay)
@@ -1007,7 +1013,35 @@ TComSlice* TDecTop::getCurSlice() {
  * Gets the current slice or nullptr if none exists
  */
 const TComSlice* TDecTop::getCurSlice() const {
-  return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+  if (m_pcPic != nullptr) {
+    return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+  } else {
+    return nullptr;
+  }
+}
+
+
+/**
+ * Gets the last-decoded VPS or nullptr if none exists
+ */
+TComVPS* TDecTop::getVPS() {
+  return m_parameterSetManager.getVPS(m_iCurVpsId);
+}
+
+
+/**
+ * Gets the last-decoded SPS or nullptr if none exists
+ */
+TComSPS* TDecTop::getSPS() {
+  return m_parameterSetManager.getSPS(m_iCurSpsId);
+}
+
+
+/**
+ * Gets the last-decoded PPS or nullptr if none exists
+ */
+TComPPS* TDecTop::getPPS() {
+  return m_parameterSetManager.getPPS(m_iCurPpsId);
 }
 
 
