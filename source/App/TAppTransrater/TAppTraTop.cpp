@@ -46,8 +46,11 @@
 #include <assert.h>
 
 #include "TAppTraTop.h"
+
 #include "TLibDecoder/AnnexBread.h"
 #include "TLibDecoder/NALread.h"
+
+#include "TLibEncoder/AnnexBwrite.h"
 
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
 #include "TLibCommon/TComCodingStatistics.h"
@@ -152,14 +155,21 @@ Void TAppTraTop::transrate() {
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
 
+      // List of access units to write to output stream
+      list<AccessUnit> outputAUs;
+
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound =
           m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
-        xEncodeUnit(nalu);
+        xEncodeUnit(nalu, outputAUs);
       } else {
-        m_encoder.encode(nalu);
+        m_encoder.encode(nalu, outputAUs);
       }
+
+      // Write any produced access units to output stream
+      xWriteOutput(outputStream, outputAUs);
+
     }
 
     // If a new picture was found in the current NAL unit, adjust the input
@@ -1042,23 +1052,23 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 /**
  * Encodes a decoded NAL unit
  */
-Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
+Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encodedAUs) {
   switch (nalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
-      m_encoder.encode(nalu, *m_decoder.getVPS());
+      m_encoder.encode(nalu, *m_decoder.getVPS(), encodedAUs);
       break;
 
     case NAL_UNIT_SPS:
-      m_encoder.encode(nalu, *m_decoder.getSPS());
+      m_encoder.encode(nalu, *m_decoder.getSPS(), encodedAUs);
       break;
 
     case NAL_UNIT_PPS:
-      m_encoder.encode(nalu, *m_decoder.getPPS());
+      m_encoder.encode(nalu, *m_decoder.getPPS(), encodedAUs);
       break;
 
     case NAL_UNIT_PREFIX_SEI:
     case NAL_UNIT_SUFFIX_SEI:
-      m_encoder.encode(nalu);
+      m_encoder.encode(nalu, encodedAUs);
       break;
 
     case NAL_UNIT_CODED_SLICE_TRAIL_R:
@@ -1077,7 +1087,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
     case NAL_UNIT_CODED_SLICE_RADL_R:
     case NAL_UNIT_CODED_SLICE_RASL_N:
     case NAL_UNIT_CODED_SLICE_RASL_R:
-      m_encoder.encode(nalu, *m_decoder.getCurSlice());
+      m_encoder.encode(nalu, *m_decoder.getCurSlice(), encodedAUs);
       break;
 
     case NAL_UNIT_EOS:
@@ -1131,7 +1141,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
     case NAL_UNIT_UNSPECIFIED_61:
     case NAL_UNIT_UNSPECIFIED_62:
     case NAL_UNIT_UNSPECIFIED_63:
-      m_encoder.encode(nalu);
+      m_encoder.encode(nalu, encodedAUs);
       break;
 
     default:
@@ -1139,5 +1149,17 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
       break;
   }
 }
+
+
+/**
+ * Writes a list of access units to an ofstream
+ */
+Void TAppTraTop::xWriteOutput(ofstream& stream, const list<AccessUnit>& outputAUs) const {
+  for (auto it = outputAUs.begin(); it != outputAUs.end(); it++) {
+    const AccessUnit& au(*it);
+    writeAnnexB(stream, au);
+  }
+}
+
 
 //! \}

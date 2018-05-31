@@ -107,11 +107,14 @@ protected:
    * I/O stream management
    */
 
-  // Helper method to open an ifstream for reading the source hevc bitstream
+  // Opens an ifstream for reading the source hevc bitstream
   Void xOpenInputStream(ifstream& stream) const;
 
-  // Helper method to open an ofstream for writing the transrated hevc bitstream
+  // Opens an ofstream for writing the transrated hevc bitstream
   Void xOpenOutputStream(ofstream& stream) const;
+
+  // Writes a list of access units to an ofstream
+  Void xWriteOutput(ofstream& stream, const list<AccessUnit>& outputAUs) const;
 
 
   /**
@@ -128,7 +131,7 @@ protected:
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
 
   // Encodes a decoded NAL unit
-  Void xEncodeUnit(const InputNALUnit& nalu);
+  Void xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encodedAUs);
 
 
   /**

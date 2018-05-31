@@ -1457,8 +1457,43 @@ Int TEncCfg::getQPForPicture(const UInt gopIndex, const TComSlice *pSlice) const
 #endif
 
 
-void TEncTop::encode(const InputNALUnit& nalu) {
+/**
+ * Reencode a nal unit
+ */
+Void TEncTop::encode(const InputNALUnit& nalu, OutputNALUnit& outputNalu) {
   
+}
+
+
+/**
+ * Reencode a slice nal unit
+ */
+Void TEncTop::encode(const InputNALUnit& nalu, const TComSlice& slice, OutputNALUnit& outputNalu) {
+  encode(nalu, outputNalu);
+}
+
+
+/**
+ * Reencode a vps nal unit
+ */
+Void TEncTop::encode(const InputNALUnit& nalu, const TComVPS& vps, OutputNALUnit& outputNalu) {
+  encode(nalu, outputNalu);
+}
+
+
+/**
+ * Reencode an sps nal unit
+ */
+Void TEncTop::encode(const InputNALUnit& nalu, const TComSPS& sps, OutputNALUnit& outputNalu) {
+  encode(nalu, outputNalu);
+}
+
+
+/**
+ * Reencode a pps nal unit
+ */
+Void TEncTop::encode(const InputNALUnit& nalu, const TComPPS& pps, OutputNALUnit& outputNalu) {
+  encode(nalu, outputNalu);
 }
 
 //! \}

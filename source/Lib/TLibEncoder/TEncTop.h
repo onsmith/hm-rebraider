@@ -182,11 +182,11 @@ public:
                std::list<AccessUnit>& accessUnitsOut, Int& iNumEncoded, Bool isTff);
 
   /// Reencode a nal unit
-  Void encode(const InputNALUnit& nalu);
-  Void encode(const InputNALUnit& nalu, const TComSlice& slice);
-  Void encode(const InputNALUnit& nalu, const TComVPS&   vps);
-  Void encode(const InputNALUnit& nalu, const TComSPS&   sps);
-  Void encode(const InputNALUnit& nalu, const TComPPS&   pps);
+  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
+  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
+  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS&   vps);
+  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS&   sps);
+  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS&   pps);
 
 #if JVET_F0064_MSSSIM
   Void printSummary(Bool isField) { m_cGOPEncoder.printOutSummary (m_uiNumAllPicCoded, isField, m_printMSEBasedSequencePSNR, m_printSequenceMSE, m_printMSSSIM, m_spsMap.getFirstPS()->getBitDepths()); }
