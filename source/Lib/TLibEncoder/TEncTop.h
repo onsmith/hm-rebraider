@@ -47,6 +47,8 @@
 
 #include "TLibVideoIO/TVideoIOYuv.h"
 
+#include "TLibDecoder/NALread.h"
+
 #include "TEncCfg.h"
 #include "TEncGOP.h"
 #include "TEncSlice.h"
@@ -178,6 +180,9 @@ public:
                TComPicYuv* pcPicYuvTrueOrg, const InputColourSpaceConversion snrCSC, // used for SNR calculations. Picture in original colour space.
                TComList<TComPicYuv*>& rcListPicYuvRecOut,
                std::list<AccessUnit>& accessUnitsOut, Int& iNumEncoded, Bool isTff);
+
+  /// Reencode a nal unit
+  Void encode(const InputNALUnit& nalu);
 
 #if JVET_F0064_MSSSIM
   Void printSummary(Bool isField) { m_cGOPEncoder.printOutSummary (m_uiNumAllPicCoded, isField, m_printMSEBasedSequencePSNR, m_printSequenceMSE, m_printMSSSIM, m_spsMap.getFirstPS()->getBitDepths()); }

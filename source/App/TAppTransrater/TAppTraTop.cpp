@@ -156,6 +156,9 @@ Void TAppTraTop::transrate() {
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound =
           m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
+        xEncodeUnit(nalu);
+      } else {
+        m_encoder.encode(nalu);
       }
     }
 
@@ -1035,5 +1038,106 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
   return (m_targetDecLayerIdSet.size() == 0);
 }
 
+
+/**
+ * Encodes a decoded NAL unit
+ */
+Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu) {
+  switch (nalu.m_nalUnitType) {
+    case NAL_UNIT_VPS:
+      m_encoder.encode(nalu, m_decoder.getVPS());
+      break;
+
+    case NAL_UNIT_SPS:
+      m_encoder.encode(nalu, m_decoder.getSPS());
+      break;
+
+    case NAL_UNIT_PPS:
+      m_encoder.encode(nalu, m_decoder.getPPS());
+      break;
+
+    case NAL_UNIT_PREFIX_SEI:
+    case NAL_UNIT_SUFFIX_SEI:
+      m_encoder.encode(nalu);
+      break;
+
+    case NAL_UNIT_CODED_SLICE_TRAIL_R:
+    case NAL_UNIT_CODED_SLICE_TRAIL_N:
+    case NAL_UNIT_CODED_SLICE_TSA_R:
+    case NAL_UNIT_CODED_SLICE_TSA_N:
+    case NAL_UNIT_CODED_SLICE_STSA_R:
+    case NAL_UNIT_CODED_SLICE_STSA_N:
+    case NAL_UNIT_CODED_SLICE_BLA_W_LP:
+    case NAL_UNIT_CODED_SLICE_BLA_W_RADL:
+    case NAL_UNIT_CODED_SLICE_BLA_N_LP:
+    case NAL_UNIT_CODED_SLICE_IDR_W_RADL:
+    case NAL_UNIT_CODED_SLICE_IDR_N_LP:
+    case NAL_UNIT_CODED_SLICE_CRA:
+    case NAL_UNIT_CODED_SLICE_RADL_N:
+    case NAL_UNIT_CODED_SLICE_RADL_R:
+    case NAL_UNIT_CODED_SLICE_RASL_N:
+    case NAL_UNIT_CODED_SLICE_RASL_R:
+      m_encoder.encode(nalu, );
+      break;
+
+    case NAL_UNIT_EOS:
+
+    case NAL_UNIT_ACCESS_UNIT_DELIMITER:
+
+    case NAL_UNIT_EOB:
+
+    case NAL_UNIT_FILLER_DATA:
+
+    case NAL_UNIT_RESERVED_VCL_N10:
+    case NAL_UNIT_RESERVED_VCL_R11:
+    case NAL_UNIT_RESERVED_VCL_N12:
+    case NAL_UNIT_RESERVED_VCL_R13:
+    case NAL_UNIT_RESERVED_VCL_N14:
+    case NAL_UNIT_RESERVED_VCL_R15:
+
+    case NAL_UNIT_RESERVED_IRAP_VCL22:
+    case NAL_UNIT_RESERVED_IRAP_VCL23:
+
+    case NAL_UNIT_RESERVED_VCL24:
+    case NAL_UNIT_RESERVED_VCL25:
+    case NAL_UNIT_RESERVED_VCL26:
+    case NAL_UNIT_RESERVED_VCL27:
+    case NAL_UNIT_RESERVED_VCL28:
+    case NAL_UNIT_RESERVED_VCL29:
+    case NAL_UNIT_RESERVED_VCL30:
+    case NAL_UNIT_RESERVED_VCL31:
+
+    case NAL_UNIT_RESERVED_NVCL41:
+    case NAL_UNIT_RESERVED_NVCL42:
+    case NAL_UNIT_RESERVED_NVCL43:
+    case NAL_UNIT_RESERVED_NVCL44:
+    case NAL_UNIT_RESERVED_NVCL45:
+    case NAL_UNIT_RESERVED_NVCL46:
+    case NAL_UNIT_RESERVED_NVCL47:
+
+    case NAL_UNIT_UNSPECIFIED_48:
+    case NAL_UNIT_UNSPECIFIED_49:
+    case NAL_UNIT_UNSPECIFIED_50:
+    case NAL_UNIT_UNSPECIFIED_51:
+    case NAL_UNIT_UNSPECIFIED_52:
+    case NAL_UNIT_UNSPECIFIED_53:
+    case NAL_UNIT_UNSPECIFIED_54:
+    case NAL_UNIT_UNSPECIFIED_55:
+    case NAL_UNIT_UNSPECIFIED_56:
+    case NAL_UNIT_UNSPECIFIED_57:
+    case NAL_UNIT_UNSPECIFIED_58:
+    case NAL_UNIT_UNSPECIFIED_59:
+    case NAL_UNIT_UNSPECIFIED_60:
+    case NAL_UNIT_UNSPECIFIED_61:
+    case NAL_UNIT_UNSPECIFIED_62:
+    case NAL_UNIT_UNSPECIFIED_63:
+      m_encoder.encode(nalu);
+      break;
+
+    default:
+      assert(0);
+      break;
+  }
+}
 
 //! \}

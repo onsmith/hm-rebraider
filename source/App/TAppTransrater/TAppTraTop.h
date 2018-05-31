@@ -127,6 +127,9 @@ protected:
   // Overwrites the default configuration for output bit depth
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
 
+  // Encodes a decoded NAL unit
+  Void xEncodeUnit(const InputNALUnit& nalu);
+
 
   /**
    * Decoded picture buffer management

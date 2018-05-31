@@ -1456,4 +1456,129 @@ Int TEncCfg::getQPForPicture(const UInt gopIndex, const TComSlice *pSlice) const
 }
 #endif
 
+
+void TEncTop::encode(const InputNALUnit& nalu) {
+  switch (nalu.m_nalUnitType) {
+    case NAL_UNIT_VPS:
+      xDecodeVPS(nalu.getBitstream().getFifo());
+      break;
+
+    case NAL_UNIT_SPS:
+      xDecodeSPS(nalu.getBitstream().getFifo());
+      break;
+
+    case NAL_UNIT_PPS:
+      xDecodePPS(nalu.getBitstream().getFifo());
+      break;
+
+    case NAL_UNIT_PREFIX_SEI:
+      // Buffer up prefix SEI messages until SPS of associated VCL is known.
+      m_prefixSEINALUs.push_back(new InputNALUnit(nalu));
+      break;
+
+    case NAL_UNIT_SUFFIX_SEI:
+      if (m_pcPic) {
+        m_seiReader.parseSEImessage( &(nalu.getBitstream()), m_pcPic->getSEIs(), nalu.m_nalUnitType, m_parameterSetManager.getActiveSPS(), m_pDecodedSEIOutputStream );
+      }
+      else {
+        //printf("Note: received suffix SEI but no picture currently active.\n");
+      }
+      break;
+
+    case NAL_UNIT_CODED_SLICE_TRAIL_R:
+    case NAL_UNIT_CODED_SLICE_TRAIL_N:
+    case NAL_UNIT_CODED_SLICE_TSA_R:
+    case NAL_UNIT_CODED_SLICE_TSA_N:
+    case NAL_UNIT_CODED_SLICE_STSA_R:
+    case NAL_UNIT_CODED_SLICE_STSA_N:
+    case NAL_UNIT_CODED_SLICE_BLA_W_LP:
+    case NAL_UNIT_CODED_SLICE_BLA_W_RADL:
+    case NAL_UNIT_CODED_SLICE_BLA_N_LP:
+    case NAL_UNIT_CODED_SLICE_IDR_W_RADL:
+    case NAL_UNIT_CODED_SLICE_IDR_N_LP:
+    case NAL_UNIT_CODED_SLICE_CRA:
+    case NAL_UNIT_CODED_SLICE_RADL_N:
+    case NAL_UNIT_CODED_SLICE_RADL_R:
+    case NAL_UNIT_CODED_SLICE_RASL_N:
+    case NAL_UNIT_CODED_SLICE_RASL_R:
+      xDecodeSlice(nalu, iSkipFrame, iPOCLastDisplay);
+      break;
+
+    case NAL_UNIT_EOS:
+      break;
+
+    case NAL_UNIT_ACCESS_UNIT_DELIMITER:
+      AUDReader audReader;
+      UInt picType;
+      audReader.parseAccessUnitDelimiter(&(nalu.getBitstream()),picType);
+      //printf("Note: found NAL_UNIT_ACCESS_UNIT_DELIMITER\n");
+      break;
+
+    case NAL_UNIT_EOB:
+      break;
+
+    case NAL_UNIT_FILLER_DATA:
+      FDReader fdReader;
+      UInt size;
+      fdReader.parseFillerData(&(nalu.getBitstream()),size);
+      //printf("Note: found NAL_UNIT_FILLER_DATA with %u bytes payload.\n", size);
+      break;
+
+    case NAL_UNIT_RESERVED_VCL_N10:
+    case NAL_UNIT_RESERVED_VCL_R11:
+    case NAL_UNIT_RESERVED_VCL_N12:
+    case NAL_UNIT_RESERVED_VCL_R13:
+    case NAL_UNIT_RESERVED_VCL_N14:
+    case NAL_UNIT_RESERVED_VCL_R15:
+
+    case NAL_UNIT_RESERVED_IRAP_VCL22:
+    case NAL_UNIT_RESERVED_IRAP_VCL23:
+
+    case NAL_UNIT_RESERVED_VCL24:
+    case NAL_UNIT_RESERVED_VCL25:
+    case NAL_UNIT_RESERVED_VCL26:
+    case NAL_UNIT_RESERVED_VCL27:
+    case NAL_UNIT_RESERVED_VCL28:
+    case NAL_UNIT_RESERVED_VCL29:
+    case NAL_UNIT_RESERVED_VCL30:
+    case NAL_UNIT_RESERVED_VCL31:
+      //printf("Note: found reserved VCL NAL unit.\n");
+      xParsePrefixSEIsForUnknownVCLNal();
+      break;
+
+    case NAL_UNIT_RESERVED_NVCL41:
+    case NAL_UNIT_RESERVED_NVCL42:
+    case NAL_UNIT_RESERVED_NVCL43:
+    case NAL_UNIT_RESERVED_NVCL44:
+    case NAL_UNIT_RESERVED_NVCL45:
+    case NAL_UNIT_RESERVED_NVCL46:
+    case NAL_UNIT_RESERVED_NVCL47:
+      //printf("Note: found reserved NAL unit.\n");
+      break;
+
+    case NAL_UNIT_UNSPECIFIED_48:
+    case NAL_UNIT_UNSPECIFIED_49:
+    case NAL_UNIT_UNSPECIFIED_50:
+    case NAL_UNIT_UNSPECIFIED_51:
+    case NAL_UNIT_UNSPECIFIED_52:
+    case NAL_UNIT_UNSPECIFIED_53:
+    case NAL_UNIT_UNSPECIFIED_54:
+    case NAL_UNIT_UNSPECIFIED_55:
+    case NAL_UNIT_UNSPECIFIED_56:
+    case NAL_UNIT_UNSPECIFIED_57:
+    case NAL_UNIT_UNSPECIFIED_58:
+    case NAL_UNIT_UNSPECIFIED_59:
+    case NAL_UNIT_UNSPECIFIED_60:
+    case NAL_UNIT_UNSPECIFIED_61:
+    case NAL_UNIT_UNSPECIFIED_62:
+    case NAL_UNIT_UNSPECIFIED_63:
+      //printf("Note: found unspecified NAL unit.\n");
+      break;
+
+    default:
+      assert(0);
+      break;
+  }
+}
+
 //! \}
