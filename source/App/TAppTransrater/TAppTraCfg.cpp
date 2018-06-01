@@ -65,6 +65,7 @@ namespace po = df::program_options_lite;
  */
 TAppTraCfg::TAppTraCfg() :
   m_inputFileName(),
+  m_outputFileName(),
   m_reconFileName(),
   m_iSkipFrame(0),
   m_outputColourSpaceConvert(IPCOLOURSPACE_UNCHANGED),
@@ -113,7 +114,8 @@ Bool TAppTraCfg::parseCfg(Int argc, TChar* argv[]) {
   // Specify permitted command line arguments in options structure
   opts.addOptions()
     ("help",                             do_help,                               false,      "this help text")
-    ("BitstreamFile,b",                  m_inputFileName,                   string(""), "bitstream input file name")
+    ("BitstreamFile,b",                  m_inputFileName,                       string(""), "bitstream input file name")
+    ("TransratedFile,r",                 m_outputFileName,                      string(""), "bitstream output file name")
     ("ReconFile,o",                      m_reconFileName,                       string(""), "reconstructed YUV output file name\n"
                                                                                             "YUV writing is skipped if omitted")
     ("WarnUnknownParameter,w",           warnUnknownParameter,                  0,          "warn for unknown configuration parameters instead of failing")

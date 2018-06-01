@@ -113,9 +113,6 @@ protected:
   // Opens an ofstream for writing the transrated hevc bitstream
   Void xOpenOutputStream(ofstream& stream) const;
 
-  // Writes a list of access units to an ofstream
-  Void xWriteOutput(ofstream& stream, const list<AccessUnit>& outputAUs) const;
-
 
   /**
    * Helper methods
@@ -130,8 +127,8 @@ protected:
   // Overwrites the default configuration for output bit depth
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
 
-  // Encodes a decoded NAL unit
-  Void xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encodedAUs);
+  // Re-encodes a NAL unit
+  Void xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu);
 
 
   /**

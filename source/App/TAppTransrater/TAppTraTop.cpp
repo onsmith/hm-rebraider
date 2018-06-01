@@ -147,29 +147,40 @@ Void TAppTraTop::transrate() {
     if (nalu.getBitstream().getFifo().empty()) {
       fprintf(stderr, "Warning: Attempt to decode an empty NAL unit\n");
 
-    // Parse nal unit header
+    // Parse and decode nal unit
     } else {
+      // Parse nal unit header
       read(nalu);
 
+      // Determine if the nal unit should be decoded
       Bool willDecodeTemporalId = (
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
 
-      // List of access units to write to output stream
-      list<AccessUnit> outputAUs;
+      // Create an output NAL unit to store the reencoded data
+      OutputNALUnit reencodedNalu(
+        nalu.m_nalUnitType,
+        nalu.m_temporalId,
+        nalu.m_nuhLayerId
+      );
 
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound =
           m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
-        xEncodeUnit(nalu, outputAUs);
+        xEncodeUnit(nalu, reencodedNalu);
       } else {
-        m_encoder.encode(nalu, outputAUs);
+        m_encoder.encode(nalu, reencodedNalu);
       }
 
       // Write any produced access units to output stream
-      xWriteOutput(outputStream, outputAUs);
-
+      /* TODO: Right now, each re-encoded NAL unit is put in its own AccessUnit
+       *   for encoding. A better approach would be to batch re-encoded NAL
+       *   units in a single AccessUnit and encode them all at once.
+       */
+      AccessUnit au;
+      au.push_front(new NALUnitEBSP(reencodedNalu));
+      writeAnnexB(outputStream, au);
     }
 
     // If a new picture was found in the current NAL unit, adjust the input
@@ -1052,23 +1063,23 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 /**
  * Encodes a decoded NAL unit
  */
-Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encodedAUs) {
-  switch (nalu.m_nalUnitType) {
+Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
+  switch (sourceNalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
-      m_encoder.encode(nalu, *m_decoder.getVPS(), encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getVPS());
       break;
 
     case NAL_UNIT_SPS:
-      m_encoder.encode(nalu, *m_decoder.getSPS(), encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getSPS());
       break;
 
     case NAL_UNIT_PPS:
-      m_encoder.encode(nalu, *m_decoder.getPPS(), encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getPPS());
       break;
 
     case NAL_UNIT_PREFIX_SEI:
     case NAL_UNIT_SUFFIX_SEI:
-      m_encoder.encode(nalu, encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu);
       break;
 
     case NAL_UNIT_CODED_SLICE_TRAIL_R:
@@ -1087,7 +1098,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encoded
     case NAL_UNIT_CODED_SLICE_RADL_R:
     case NAL_UNIT_CODED_SLICE_RASL_N:
     case NAL_UNIT_CODED_SLICE_RASL_R:
-      m_encoder.encode(nalu, *m_decoder.getCurSlice(), encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getCurSlice());
       break;
 
     case NAL_UNIT_EOS:
@@ -1141,23 +1152,12 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& nalu, list<AccessUnit>& encoded
     case NAL_UNIT_UNSPECIFIED_61:
     case NAL_UNIT_UNSPECIFIED_62:
     case NAL_UNIT_UNSPECIFIED_63:
-      m_encoder.encode(nalu, encodedAUs);
+      m_encoder.encode(sourceNalu, encodedNalu);
       break;
 
     default:
       assert(0);
       break;
-  }
-}
-
-
-/**
- * Writes a list of access units to an ofstream
- */
-Void TAppTraTop::xWriteOutput(ofstream& stream, const list<AccessUnit>& outputAUs) const {
-  for (auto it = outputAUs.begin(); it != outputAUs.end(); it++) {
-    const AccessUnit& au(*it);
-    writeAnnexB(stream, au);
   }
 }
 

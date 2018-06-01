@@ -49,6 +49,8 @@
 
 #include "TLibDecoder/NALread.h"
 
+#include "TLibEncoder/NALwrite.h"
+
 #include "TEncCfg.h"
 #include "TEncGOP.h"
 #include "TEncSlice.h"

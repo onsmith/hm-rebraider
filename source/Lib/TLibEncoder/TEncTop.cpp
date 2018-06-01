@@ -1460,40 +1460,41 @@ Int TEncCfg::getQPForPicture(const UInt gopIndex, const TComSlice *pSlice) const
 /**
  * Reencode a nal unit
  */
-Void TEncTop::encode(const InputNALUnit& nalu, OutputNALUnit& outputNalu) {
-  
+Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
+  outputNalu = inputNalu;
+  outputNalu.m_Bitstream.getFIFO() = inputNalu.getBitstream().getFifo();
 }
 
 
 /**
  * Reencode a slice nal unit
  */
-Void TEncTop::encode(const InputNALUnit& nalu, const TComSlice& slice, OutputNALUnit& outputNalu) {
-  encode(nalu, outputNalu);
+Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
+  encode(inputNalu, outputNalu);
 }
 
 
 /**
  * Reencode a vps nal unit
  */
-Void TEncTop::encode(const InputNALUnit& nalu, const TComVPS& vps, OutputNALUnit& outputNalu) {
-  encode(nalu, outputNalu);
+Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
+  encode(inputNalu, outputNalu);
 }
 
 
 /**
  * Reencode an sps nal unit
  */
-Void TEncTop::encode(const InputNALUnit& nalu, const TComSPS& sps, OutputNALUnit& outputNalu) {
-  encode(nalu, outputNalu);
+Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
+  encode(inputNalu, outputNalu);
 }
 
 
 /**
  * Reencode a pps nal unit
  */
-Void TEncTop::encode(const InputNALUnit& nalu, const TComPPS& pps, OutputNALUnit& outputNalu) {
-  encode(nalu, outputNalu);
+Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
+  encode(inputNalu, outputNalu);
 }
 
 //! \}
