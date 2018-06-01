@@ -1005,7 +1005,11 @@ Bool TDecTop::isRandomAccessSkipPicture(Int& iSkipFrame,  Int& iPOCLastDisplay)
  * Gets the current slice or nullptr if none exists
  */
 TComSlice* TDecTop::getCurSlice() {
-  return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+  if (m_pcPic != nullptr) {
+    return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+  } else {
+    return nullptr;
+  }
 }
 
 

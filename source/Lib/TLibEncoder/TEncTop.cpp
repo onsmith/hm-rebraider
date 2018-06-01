@@ -1462,7 +1462,10 @@ Int TEncCfg::getQPForPicture(const UInt gopIndex, const TComSlice *pSlice) const
  */
 Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
   outputNalu = inputNalu;
-  outputNalu.m_Bitstream.getFIFO() = inputNalu.getBitstream().getFifo();
+  const std::vector<UChar>& src = inputNalu.getBitstream().getFifo();
+        std::vector<UChar>& dst = outputNalu.m_Bitstream.getFIFO();
+  dst.resize(src.size() - 2);
+  std::copy(src.begin() + 2, src.end(), dst.begin());
 }
 
 
