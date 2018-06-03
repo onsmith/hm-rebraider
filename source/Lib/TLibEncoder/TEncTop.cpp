@@ -1458,46 +1458,45 @@ Int TEncCfg::getQPForPicture(const UInt gopIndex, const TComSlice *pSlice) const
 
 
 /**
- * Reencode a nal unit
+ * Transcode a NAL unit without decoding
  */
-Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
+Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
   outputNalu = inputNalu;
-  const std::vector<UChar>& src = inputNalu.getBitstream().getFifo();
-        std::vector<UChar>& dst = outputNalu.m_Bitstream.getFIFO();
-  dst.resize(src.size() - 2);
-  std::copy(src.begin() + 2, src.end(), dst.begin());
 }
 
 
 /**
- * Reencode a slice nal unit
+ * Transcode a decoded VPS NAL unit
  */
-Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
-  encode(inputNalu, outputNalu);
+Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
+  m_cVPS = vps;
+  transcode(inputNalu, outputNalu);
 }
 
 
 /**
- * Reencode a vps nal unit
+ * Transcode a decoded SPS NAL unit
  */
-Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
-  encode(inputNalu, outputNalu);
+Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
+  *m_spsMap.allocatePS(sps.getSPSId()) = sps;
+  transcode(inputNalu, outputNalu);
 }
 
 
 /**
- * Reencode an sps nal unit
+ * Transcode a decoded PPS NAL unit
  */
-Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
-  encode(inputNalu, outputNalu);
+Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
+  *m_ppsMap.allocatePS(pps.getPPSId()) = pps;
+  transcode(inputNalu, outputNalu);
 }
 
 
 /**
- * Reencode a pps nal unit
+ * Transcode a decoded slice NAL unit
  */
-Void TEncTop::encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
-  encode(inputNalu, outputNalu);
+Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
+  transcode(inputNalu, outputNalu);
 }
 
 //! \}

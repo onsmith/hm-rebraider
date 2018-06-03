@@ -166,17 +166,16 @@ Void TAppTraTop::transrate() {
 
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
-        wasNewPictureFound = false;
-          //m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
+        wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
         xEncodeUnit(nalu, reencodedNalu);
       } else {
-        m_encoder.encode(nalu, reencodedNalu);
+        m_encoder.transcode(nalu, reencodedNalu);
       }
 
       // Write any produced access units to output stream
       /* TODO: Right now, each re-encoded NAL unit is put in its own AccessUnit
-       *   for encoding. A better approach would be to batch re-encoded NAL
-       *   units in a single AccessUnit and encode them all at once.
+       *   for encoding. A better approach would probably be to batch re-encoded
+       *   NAL units in a single AccessUnit and encode them all at once.
        */
       AccessUnit au;
       au.push_front(new NALUnitEBSP(reencodedNalu));
@@ -1066,20 +1065,20 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
   switch (sourceNalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
-      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getVPS());
+      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
       break;
 
     case NAL_UNIT_SPS:
-      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getSPS());
+      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getSPS());
       break;
 
     case NAL_UNIT_PPS:
-      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getPPS());
+      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getPPS());
       break;
 
     case NAL_UNIT_PREFIX_SEI:
     case NAL_UNIT_SUFFIX_SEI:
-      m_encoder.encode(sourceNalu, encodedNalu);
+      m_encoder.transcode(sourceNalu, encodedNalu);
       break;
 
     case NAL_UNIT_CODED_SLICE_TRAIL_R:
@@ -1098,7 +1097,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
     case NAL_UNIT_CODED_SLICE_RADL_R:
     case NAL_UNIT_CODED_SLICE_RASL_N:
     case NAL_UNIT_CODED_SLICE_RASL_R:
-      m_encoder.encode(sourceNalu, encodedNalu, *m_decoder.getCurSlice());
+      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getCurSlice());
       break;
 
     case NAL_UNIT_EOS:
@@ -1152,7 +1151,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
     case NAL_UNIT_UNSPECIFIED_61:
     case NAL_UNIT_UNSPECIFIED_62:
     case NAL_UNIT_UNSPECIFIED_63:
-      m_encoder.encode(sourceNalu, encodedNalu);
+      m_encoder.transcode(sourceNalu, encodedNalu);
       break;
 
     default:
