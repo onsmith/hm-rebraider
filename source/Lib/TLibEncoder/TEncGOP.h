@@ -183,6 +183,9 @@ public:
   TEncAnalyze& getAnalyzePData()   { return m_gcAnalyzeP; }
   TEncAnalyze& getAnalyzeBData()   { return m_gcAnalyzeB; }
 
+  // Compress a single slice given predetermined coding decisions
+  Void compressSlice(TComSlice& slice, OutputNALUnit& nalu);
+
 protected:
   TEncRateCtrl* getRateCtrl()       { return m_pcRateCtrl;  }
 

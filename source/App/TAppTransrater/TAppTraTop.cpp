@@ -166,8 +166,7 @@ Void TAppTraTop::transrate() {
 
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
-        wasNewPictureFound = false;
-          //m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
+        wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
         xEncodeUnit(nalu, reencodedNalu);
       } else {
         m_encoder.encode(nalu, reencodedNalu);
