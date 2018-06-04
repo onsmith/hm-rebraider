@@ -187,13 +187,13 @@ public:
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
   
   /// Transcode a decoded VPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS&   vps);
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps);
   
   /// Transcode a decoded SPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS&   sps);
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps);
   
   /// Transcode a decoded PPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS&   pps);
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps);
   
   /// Transcode a decoded slice NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
