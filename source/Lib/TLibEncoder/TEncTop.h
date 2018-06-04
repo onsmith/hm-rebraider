@@ -182,13 +182,22 @@ public:
                TComPicYuv* pcPicYuvTrueOrg, const InputColourSpaceConversion snrCSC, // used for SNR calculations. Picture in original colour space.
                TComList<TComPicYuv*>& rcListPicYuvRecOut,
                std::list<AccessUnit>& accessUnitsOut, Int& iNumEncoded, Bool isTff);
+  
+  /// Transcode a NAL unit without decoding
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
+  
+  /// Transcode a decoded VPS NAL unit
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps);
+  
+  /// Transcode a decoded SPS NAL unit
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps);
+  
+  /// Transcode a decoded PPS NAL unit
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps);
+  
+  /// Transcode a decoded slice NAL unit
+  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
 
-  /// Reencode a nal unit
-  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
-  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
-  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS&   vps);
-  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS&   sps);
-  Void encode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS&   pps);
 
 #if JVET_F0064_MSSSIM
   Void printSummary(Bool isField) { m_cGOPEncoder.printOutSummary (m_uiNumAllPicCoded, isField, m_printMSEBasedSequencePSNR, m_printSequenceMSE, m_printMSSSIM, m_spsMap.getFirstPS()->getBitDepths()); }

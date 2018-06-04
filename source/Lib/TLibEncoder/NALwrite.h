@@ -42,6 +42,9 @@
 #include "TLibCommon/TComBitStream.h"
 #include "TLibCommon/NAL.h"
 
+#include "TLibDecoder/NALread.h"
+
+
 //! \ingroup TLibEncoder
 //! \{
 
@@ -63,6 +66,39 @@ struct OutputNALUnit : public NALUnit
   : NALUnit(nalUnitType, temporalID, reserved_zero_6bits)
   , m_Bitstream()
   {}
+
+  /**
+   * Copy the data payload from an InputNALUnit. Note that the InputNALUnit
+   *   payload includes the two-byte NAL unit header in its bitstream vector,
+   *   while OutputNALUnit does not; therefore, this method skips the first two
+   *   bytes when copying the payload.
+   */
+  Void copyPayloadFrom(const InputNALUnit& src) {
+    const std::vector<UChar>& srcData = src.getBitstream().getFifo();
+          std::vector<UChar>& dstData = m_Bitstream.getFIFO();
+    dstData.resize(srcData.size() - 2);
+    std::copy(srcData.begin() + 2, srcData.end(), dstData.begin());
+  }
+
+  /**
+   * Construct an OutputNALUnit based on an InputNALUnit. The resulting
+   *   OutputNALUnit contains the same payload as the InputNALUnit.
+   */
+  OutputNALUnit(const InputNALUnit& src) :
+    NALUnit(src),
+    m_Bitstream() {
+    copyPayloadFrom(src);
+  }
+
+  /**
+   * Copy-assign an OutputNALUnit based on an InputNALUnit. After execution, the
+   *   OutputNALUnit contains the same payload as the InputNALUnit.
+   */
+  OutputNALUnit& operator=(const InputNALUnit& src) {
+    NALUnit::operator=(src);
+    copyPayloadFrom(src);
+    return *this;
+  }
 
   OutputNALUnit& operator=(const NALUnit& src)
   {
