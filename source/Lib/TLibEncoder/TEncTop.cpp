@@ -1496,7 +1496,51 @@ Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded slice NAL unit
  */
 Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
-  transcode(inputNalu, outputNalu);
+  // Get or make an encoding TComPic
+  assert(slice.getPic() != nullptr);
+  const TComPic& decPic = *slice.getPic();
+        TComPic& encPic = xFindOrCreateEncPic(decPic);
+
+  // Perform slice transcode
+  // TODO
 }
+
+
+/**
+ * Given a decoded TComPic object, find or create a corresponding encoding
+ *   TComPic object
+ */
+TComPic& TEncTop::xFindOrCreateEncPic(const TComPic& decPic) {
+  // Linearly search through the picture buffer for an existing TComPic with
+  //   the desired POC
+  Int pocId = decPic.getPOC();
+  for (auto it = m_cListPic.begin(); it != m_cListPic.end(); it++) {
+    TComPic* pEncPic = *it;
+    if (pEncPic != nullptr && pEncPic->getPOC() == pocId) {
+      return *pEncPic;
+    }
+  }
+
+  // A TComPic with the desired POC doesn't exist yet, so make one
+  TComPic* pEncPic;
+  xGetNewPicBuffer(pEncPic, decPic.getPicSym()->getPPS().getPPSId());
+
+  // Copy TComPic config
+  xCopyPicConfig(decPic, *pEncPic);
+
+  // Return encoder frame object
+  return *pEncPic;
+}
+
+
+/**
+ * Copies TComPic configuration from a reference decoded TComPic object into
+ *   another
+ */
+Void TEncTop::xCopyPicConfig(const TComPic& src, TComPic& dst) {
+  src.getPicYuvRec()->copyToPic(dst.getPicYuvOrg());
+  src.getPicYuvRec()->copyToPic(dst.getPicYuvTrueOrg());
+}
+
 
 //! \}
