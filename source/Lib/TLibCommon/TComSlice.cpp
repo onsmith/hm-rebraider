@@ -662,7 +662,7 @@ Void TComSlice::decodingRefreshMarking(Int& pocCRA, Bool& bRefreshPending, TComL
   }
 }
 
-Void TComSlice::copySliceInfo(TComSlice *pSrc)
+Void TComSlice::copySliceInfo(const TComSlice *pSrc)
 {
   assert( pSrc != NULL );
 

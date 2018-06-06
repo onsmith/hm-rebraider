@@ -1521,7 +1521,7 @@ public:
   UInt                        getSliceCurEndCtuTsAddr() const                        { return m_sliceCurEndCtuTsAddr;                                } // CTU Tile-scan address (as opposed to raster-scan)
   Void                        setSliceIdx( UInt i)                                   { m_sliceIdx = i;                                               }
   UInt                        getSliceIdx() const                                    { return  m_sliceIdx;                                           }
-  Void                        copySliceInfo(TComSlice *pcSliceSrc);
+  Void                        copySliceInfo(const TComSlice *pcSliceSrc);
   Void                        setSliceSegmentMode( SliceConstraint mode )            { m_sliceSegmentMode = mode;                                    }
   SliceConstraint             getSliceSegmentMode() const                            { return m_sliceSegmentMode;                                    }
   Void                        setSliceSegmentArgument( UInt uiArgument )             { m_sliceSegmentArgument = uiArgument;                          }

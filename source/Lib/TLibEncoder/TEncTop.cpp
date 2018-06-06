@@ -1496,19 +1496,26 @@ Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded slice NAL unit
  */
 Void TEncTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
-  // Get or make an encoding TComPic
+  // Get encoder TComPic
   assert(slice.getPic() != nullptr);
   const TComPic& decPic = *slice.getPic();
         TComPic& encPic = xFindOrCreateEncPic(decPic);
 
+  // Copy slice to encoder
+  TComSlice& encSlice =
+    *encPic.getPicSym()->getSlice(encPic.getNumAllocatedSlice());
+  encSlice.copySliceInfo(&slice);
+
   // Perform slice transcode
+
+
   // TODO
 }
 
 
 /**
  * Given a decoded TComPic object, find or create a corresponding encoding
- *   TComPic object
+ *   TComPic object and add a new slice
  */
 TComPic& TEncTop::xFindOrCreateEncPic(const TComPic& decPic) {
   // Linearly search through the picture buffer for an existing TComPic with
@@ -1517,6 +1524,7 @@ TComPic& TEncTop::xFindOrCreateEncPic(const TComPic& decPic) {
   for (auto it = m_cListPic.begin(); it != m_cListPic.end(); it++) {
     TComPic* pEncPic = *it;
     if (pEncPic != nullptr && pEncPic->getPOC() == pocId) {
+      pEncPic->getPicSym()->allocateNewSlice();
       return *pEncPic;
     }
   }
@@ -1534,7 +1542,7 @@ TComPic& TEncTop::xFindOrCreateEncPic(const TComPic& decPic) {
 
 
 /**
- * Copies TComPic configuration from a reference decoded TComPic object into
+ * Copy TComPic configuration from a reference decoded TComPic object into
  *   another
  */
 Void TEncTop::xCopyPicConfig(const TComPic& src, TComPic& dst) {
