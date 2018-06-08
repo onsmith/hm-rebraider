@@ -175,10 +175,14 @@
     <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraCfg.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraTop.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp" />
+    <ClCompile Include="TTraPictureBuffer.cpp" />
+    <ClCompile Include="TTraTop.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h" />
     <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraTop.h" />
+    <ClInclude Include="TTraPictureBuffer.h" />
+    <ClInclude Include="TTraTop.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="TAppCommon_vc2015.vcxproj">
