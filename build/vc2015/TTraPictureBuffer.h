@@ -27,8 +27,8 @@ public:
   // Find a TComPic by POC
   TComPic* findByPOC(Int poc);
 
-  // Get (or reuse) a TComPic from the buffer
-  TComPic& get();
+  // Get or make a TComPic from the picture buffer
+  TComPic& getUnusedPicture();
 
   // Clear buffer
   Void clear();

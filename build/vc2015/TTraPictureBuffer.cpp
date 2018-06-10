@@ -46,6 +46,15 @@ TComPic* TTraPictureBuffer::findByPOC(Int poc) {
 }
 
 
+
+/**
+ * Get or make a TComPic from the picture buffer
+ */
+TComPic& TTraPictureBuffer::getUnusedPicture() {
+  
+}
+
+
 /**
  * Clear picture buffer
  */
