@@ -55,6 +55,8 @@
 #include "TLibEncoder/TEncTop.h"
 #include "TAppTraCfg.h"
 
+#include "TTraTop.h"
+
 
 using std::ifstream;
 using std::ofstream;
@@ -71,7 +73,7 @@ private:
   TDecTop m_decoder;
 
   // Internal encoder object
-  TEncTop m_encoder;
+  TTraTop m_transcoder;
 
   // The picture order count (POC) of the last frame that was output
   Int m_lastOutputPOC;

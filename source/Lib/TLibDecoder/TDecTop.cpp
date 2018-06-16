@@ -1006,7 +1006,7 @@ Bool TDecTop::isRandomAccessSkipPicture(Int& iSkipFrame,  Int& iPOCLastDisplay)
  */
 TComSlice* TDecTop::getCurSlice() {
   if (m_pcPic != nullptr) {
-    return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+    return m_pcPic->getSlice(m_pcPic->getNumAllocatedSlice() - 1);
   } else {
     return nullptr;
   }
@@ -1018,7 +1018,7 @@ TComSlice* TDecTop::getCurSlice() {
  */
 const TComSlice* TDecTop::getCurSlice() const {
   if (m_pcPic != nullptr) {
-    return m_pcPic->getSlice(m_pcPic->getCurrSliceIdx());
+    return m_pcPic->getSlice(m_pcPic->getNumAllocatedSlice() - 1);
   } else {
     return nullptr;
   }

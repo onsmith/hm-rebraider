@@ -167,6 +167,9 @@ public:
   Void selectReferencePictureSet(TComSlice* slice, Int POCCurr, Int GOPid );
   Int getReferencePictureSetIdxForSOP(Int POCCurr, Int GOPid );
 
+  ParameterSetMap<TComSPS>* getSpsMap           () { return &m_spsMap;                }
+  ParameterSetMap<TComPPS>* getPpsMap           () { return &m_ppsMap;                }
+
 #if JCTVC_Y0038_PARAMS
   Void                   setParamSetChanged(Int spsId, Int ppsId);
 #endif
@@ -189,21 +192,6 @@ public:
                TComPicYuv* pcPicYuvTrueOrg, const InputColourSpaceConversion snrCSC, // used for SNR calculations. Picture in original colour space.
                TComList<TComPicYuv*>& rcListPicYuvRecOut,
                std::list<AccessUnit>& accessUnitsOut, Int& iNumEncoded, Bool isTff);
-  
-  /// Transcode a NAL unit without decoding
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
-  
-  /// Transcode a decoded VPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps);
-  
-  /// Transcode a decoded SPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps);
-  
-  /// Transcode a decoded PPS NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps);
-  
-  /// Transcode a decoded slice NAL unit
-  Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
 
 
 #if JVET_F0064_MSSSIM

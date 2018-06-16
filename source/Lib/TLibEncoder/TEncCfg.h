@@ -937,7 +937,7 @@ public:
   CostMode     getCostMode( ) const                                  { return m_costMode; }
   Void         setCostMode(CostMode m )                              { m_costMode = m; }
 
-  Void         setVPS(TComVPS *p)                                    { m_cVPS = *p; }
+  Void         setVPS(const TComVPS *p)                              { m_cVPS = *p; }
   TComVPS *    getVPS()                                              { return &m_cVPS; }
   Void         setUseRecalculateQPAccordingToLambda (Bool b)         { m_recalculateQPAccordingToLambda = b;    }
   Bool         getUseRecalculateQPAccordingToLambda ()               { return m_recalculateQPAccordingToLambda; }

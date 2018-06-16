@@ -20,10 +20,7 @@
     <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TTraTop.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TTraPictureBuffer.cpp">
+    <ClCompile Include="..\..\source\App\TAppTransrater\TTraTop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -34,10 +31,7 @@
     <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TTraTop.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TTraPictureBuffer.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TTraTop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

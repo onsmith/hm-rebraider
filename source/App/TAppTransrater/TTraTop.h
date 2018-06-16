@@ -39,45 +39,44 @@
  */
 
 
-#pragma once
+#pragma once 
 
-#include "TTraPictureBuffer.h"
 
 #include "TLibCommon/TComSlice.h"
+
 #include "TLibDecoder/NALread.h"
+
 #include "TLibEncoder/NALwrite.h"
-#include "TLibEncoder/TEncEntropy.h"
-#include "TLibEncoder/TEncCavlc.h"
-#include "TLibEncoder/TEncSbac.h"
-#include "TLibEncoder/TEncSlice.h"
+#include "TLibEncoder/TEncTop.h"
 
 
 //! \ingroup TAppTransrater
 //! \{
 
 
-class TTraTop {
+class TTraTop : public TEncTop {
 protected:
   // Coding picture buffer
-  TTraPictureBuffer m_cpb;
+  //TTraPictureBuffer m_cpb;
 
   // Retain a pointer to the decoded video parameter set
-  const TComVPS* m_vps;
+  //const TComVPS* m_vps;
 
   // Store copies of all SPS and PPS transcoded
-  ParameterSetMap<TComSPS> m_spsMap;
-  ParameterSetMap<TComPPS> m_ppsMap;
+  //ParameterSetMap<TComSPS> m_spsMap;
+  //ParameterSetMap<TComPPS> m_ppsMap;
 
   // Slice encoder
-  TEncSlice m_sliceEncoder;
+  //TEncSlice m_sliceEncoder;
 
   // Entropy code helper objects
-  TEncEntropy  m_entropyEncoder; // generic entropy encoder
-  TEncCavlc    m_cavlcEncoder;   // context-adaptive variable length code encoder
-  TEncSbac     m_sbacEncoder;    // syntax-based arithmetic code encoder
-  TEncBinCABAC m_cabacEncoder;   // context-adaptive binary arithemtic code encoder
+  //TEncEntropy  m_entropyEncoder; // generic entropy encoder
+  //TEncCavlc    m_cavlcEncoder;   // context-adaptive variable length code encoder
+  //TEncSbac     m_sbacEncoder;    // syntax-based arithmetic code encoder
+  //TEncBinCABAC m_cabacEncoder;   // context-adaptive binary arithemtic code encoder
 
-  //TComTrQuant             m_cTrQuant;     // transform & quantization class
+  //TComTrQuant  m_transQuant;     // transform & quantization class
+  //TEncCu       m_cuEncoder;      // coding unit encoder
   //TComLoopFilter          m_cLoopFilter;  // deblocking filter class
   //TEncSampleAdaptiveOffset m_cEncSAO;     // sample adaptive offset class
 
@@ -111,8 +110,26 @@ protected:
   Void xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream); // sequence parameter set encoding
   Void xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream); // picture parameter set encoding
 
-  // Slice encode and write to bitstream
+  // Encode slice and write to bitstream
   Void xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream);
+
+  // Copy a TComSlice to a TComPic, returning a reference to the new TComSlice
+  TComSlice& xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic);
+
+  // Compress a decoded slice by choosing compression parameters
+  Void xCompressSlice(TComSlice& slice);
+
+  // Resolve a TComSlice into its corresponding encoder TComPic
+  TComPic& xGetEncPicBySlice(const TComSlice& slice);
+
+  // Find an existing const TComPic by POC
+  TComPic* xGetEncPicByPoc(Int poc);
+  
+  // Get an unused entry from the picture buffer
+  TComPic*& xGetUnusedEntry();
+
+  // Encode a slice and write to bitstream
+  //UInt xCompressSlice(TComSlice& slice, TComPic& pic, TComOutputBitstream* bitstreams);
 };
 
 

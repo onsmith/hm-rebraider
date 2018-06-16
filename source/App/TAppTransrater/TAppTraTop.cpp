@@ -82,7 +82,7 @@ UInt TAppTraTop::numDecodingErrorsDetected() const {
  *   1. Opens the input and output bitstream files
  *   2. Creates encoder and decoder objects
  *   3. Initializes encoder and decoder using defined configuration
- *   4. Until the end of the bitstream, decode and recode the video
+ *   4. Until the end of the bitstream, decode and recode video frames
  *   5. Destroy the internal encoder and decoder objects
  */
 Void TAppTraTop::transrate() {
@@ -169,7 +169,7 @@ Void TAppTraTop::transrate() {
         wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
         xEncodeUnit(nalu, reencodedNalu);
       } else {
-        m_encoder.transcode(nalu, reencodedNalu);
+        m_transcoder.transcode(nalu, reencodedNalu);
       }
 
       // Write any produced access units to output stream
@@ -1065,20 +1065,20 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
   switch (sourceNalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
-      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
       break;
 
     case NAL_UNIT_SPS:
-      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getSPS());
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getSPS());
       break;
 
     case NAL_UNIT_PPS:
-      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getPPS());
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getPPS());
       break;
 
     case NAL_UNIT_PREFIX_SEI:
     case NAL_UNIT_SUFFIX_SEI:
-      m_encoder.transcode(sourceNalu, encodedNalu);
+      m_transcoder.transcode(sourceNalu, encodedNalu);
       break;
 
     case NAL_UNIT_CODED_SLICE_TRAIL_R:
@@ -1097,7 +1097,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
     case NAL_UNIT_CODED_SLICE_RADL_R:
     case NAL_UNIT_CODED_SLICE_RASL_N:
     case NAL_UNIT_CODED_SLICE_RASL_R:
-      m_encoder.transcode(sourceNalu, encodedNalu, *m_decoder.getCurSlice());
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getCurSlice());
       break;
 
     case NAL_UNIT_EOS:
@@ -1151,7 +1151,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
     case NAL_UNIT_UNSPECIFIED_61:
     case NAL_UNIT_UNSPECIFIED_62:
     case NAL_UNIT_UNSPECIFIED_63:
-      m_encoder.transcode(sourceNalu, encodedNalu);
+      m_transcoder.transcode(sourceNalu, encodedNalu);
       break;
 
     default:
