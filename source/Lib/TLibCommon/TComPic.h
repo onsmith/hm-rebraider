@@ -105,8 +105,8 @@ public:
   Void          setUsedByCurr( Bool bUsed ) { m_bUsedByCurr = bUsed; }
   Bool          getIsLongTerm() const            { return m_bIsLongTerm; }
   Void          setIsLongTerm( Bool lt ) { m_bIsLongTerm = lt; }
-  Void          setCheckLTMSBPresent     (Bool b ) {m_bCheckLTMSB=b;}
-  Bool          getCheckLTMSBPresent     () { return m_bCheckLTMSB;}
+  Void          setCheckLTMSBPresent(Bool b)       { m_bCheckLTMSB = b; }
+  Bool          getCheckLTMSBPresent(      ) const { return m_bCheckLTMSB; }
 
   TComPicSym*   getPicSym()                        { return  &m_picSym;    }
   const TComPicSym* getPicSym() const              { return  &m_picSym;    }
@@ -125,6 +125,9 @@ public:
   TComPicYuv*   getPicYuvResi()       { return  m_pcPicYuvResi; }
   Void          setPicYuvPred( TComPicYuv* pcPicYuv )       { m_pcPicYuvPred = pcPicYuv; }
   Void          setPicYuvResi( TComPicYuv* pcPicYuv )       { m_pcPicYuvResi = pcPicYuv; }
+
+  Void          setPicYuvOrg    ( TComPicYuv* pcPicYuv )    { m_apcPicYuv[PIC_YUV_ORG]      = pcPicYuv; }
+  Void          setPicYuvTrueOrg( TComPicYuv* pcPicYuv )    { m_apcPicYuv[PIC_YUV_TRUE_ORG] = pcPicYuv; }
 
   UInt          getNumberOfCtusInFrame() const     { return m_picSym.getNumberOfCtusInFrame(); }
   UInt          getNumPartInCtuWidth() const       { return m_picSym.getNumPartInCtuWidth();   }
@@ -163,7 +166,7 @@ public:
   /* field coding parameters*/
 
    Void              setTopField(Bool b)                  {m_isTop = b;}
-   Bool              isTopField()                         {return m_isTop;}
+   Bool              isTopField() const                   {return m_isTop;}
    Void              setField(Bool b)                     {m_isField = b;}
    Bool              isField() const                      {return m_isField;}
 

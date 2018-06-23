@@ -99,7 +99,7 @@ protected:
    */
 
   // Transfers the current configuration to the encoder object
-  Void xConfigEncoder();
+  Void xConfigTranscoder();
 
   // Transfers the current configuration to the decoder object
   Void xConfigDecoder();

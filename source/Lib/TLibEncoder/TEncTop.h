@@ -126,13 +126,6 @@ protected:
   Void  xInitPPSforTiles  (TComPPS &pps);
   Void  xInitRPS          (TComSPS &sps, Bool isFieldCoding);           ///< initialize PPS from encoder options
 
-  // Given a decoded TComPic object, find or create a corresponding encoding
-  //   TComPic object
-  TComPic& xFindOrCreateEncPic(const TComPic& decPic);
-
-  // Copy encoding config from one TComPic to another
-  Void xCopyPicConfig(const TComPic& src, TComPic& dst);
-
 public:
   TEncTop();
   virtual ~TEncTop();

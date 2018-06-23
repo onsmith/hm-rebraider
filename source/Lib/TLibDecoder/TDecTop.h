@@ -169,6 +169,10 @@ public:
   // Gets the last-decoded PPS or nullptr if none exists
   TComPPS* getPPS();
 
+  // Gets the current picture or nullptr if none exists
+        TComPic* getCurPic()       { return m_pcPic; }
+  const TComPic* getCurPic() const { return m_pcPic; }
+
 protected:
   Void  xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);
   Void  xCreateLostPicture (Int iLostPOC);

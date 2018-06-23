@@ -368,6 +368,180 @@ Void TComDataCU::destroy()
 
 }
 
+
+/**
+ * Static (local) template function to copy an array's contents using C style
+ *   allocation (malloc/free)
+ */
+template<typename T>
+inline static Void copyArrMalloc(T* const & src, T*& dst, Bool isArrResized, UInt arrSize) {
+  if (dst != nullptr && (src == nullptr || isArrResized)) {
+    xFree(dst);
+    dst = nullptr;
+  }
+  if (src != nullptr) {
+    if (dst == nullptr) {
+      dst = static_cast<T*>(xMalloc(T, arrSize));
+    }
+    memcpy(dst, src, arrSize * sizeof(T));
+  }
+}
+
+
+/**
+ * Static (local) template function to copy an array's contents using C++ style
+ *   allocation (new/delete)
+ */
+template<typename T>
+inline static Void copyArrNew(T* const & src, T*& dst, Bool isArrResized, UInt arrSize) {
+  if (dst != nullptr && (src == nullptr || isArrResized)) {
+    delete[] dst;
+    dst = nullptr;
+  }
+  if (src != nullptr) {
+    if (dst == nullptr) {
+      dst = new T[arrSize];
+    }
+    memcpy(dst, src, arrSize * sizeof(T));
+  }
+}
+
+
+TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
+  /**
+   * Calculate number of pixels in each component of the CU
+   */
+  UInt numPixels[MAX_NUM_COMPONENT];
+  for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
+    const ComponentID compID = ComponentID(comp);
+    const UInt chromaShift = getComponentScaleX(compID, chromaFormatIDC) + getComponentScaleY(compID, chromaFormatIDC);
+    numPixels[comp] = (uiWidth * uiHeight) >> chromaShift;
+  }
+
+
+  /**
+   * Copy raw properties
+   */
+  m_ctuRsAddr         = rhs.m_ctuRsAddr;
+  m_absZIdxInCtu      = rhs.m_absZIdxInCtu;
+  m_uiCUPelX          = rhs.m_uiCUPelX;
+  m_uiCUPelY          = rhs.m_uiCUPelY;
+
+  m_codedChromaQpAdj  = rhs.m_codedChromaQpAdj;
+
+  m_bDecSubCu         = rhs.m_bDecSubCu;
+  m_dTotalCost        = rhs.m_dTotalCost;
+  m_uiTotalDistortion = rhs.m_uiTotalDistortion;
+  m_uiTotalBits       = rhs.m_uiTotalBits;
+  m_uiTotalBins       = rhs.m_uiTotalBins; 
+  m_codedQP           = rhs.m_codedQP;
+  
+  m_cMvFieldA         = rhs.m_cMvFieldA;
+  m_cMvFieldB         = rhs.m_cMvFieldB;
+  m_cMvFieldC         = rhs.m_cMvFieldC;
+
+  m_cMvPred           = rhs.m_cMvPred;
+
+  // TODO: This may leak state
+  for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    m_acCUMvField[i].destroy();
+    m_acCUMvField[i] = rhs.m_acCUMvField[i];
+  }
+
+
+  /**
+   * Copy optional raw properties
+   */
+#if AMP_MRG
+  m_bIsMergeAMP = rhs.m_bIsMergeAMP;
+#endif
+
+#if MCTS_ENC_CHECK
+  m_tMctsMvpIsValid = rhs.m_tMctsMvpIsValid;
+#endif
+
+
+  /**
+   * If the CUs have different number of partitions, then resize memory of array
+   *   properties
+   */
+  Bool isNumPartitionDifferent = (m_uiNumPartition != rhs.m_uiNumPartition);
+  Bool isNumPixelsDifferent    = isNumPartitionDifferent;
+
+  m_uiNumPartition = rhs.m_uiNumPartition;
+
+  copyArrMalloc(rhs.m_puhDepth,      m_puhDepth,      isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_puhWidth,      m_puhWidth,      isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_puhHeight,     m_puhHeight,     isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_pbMergeFlag,   m_pbMergeFlag,   isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_puhMergeIndex, m_puhMergeIndex, isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_puhInterDir,   m_puhInterDir,   isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_puhTrIdx,      m_puhTrIdx,      isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_pbIPCMFlag,    m_pbIPCMFlag,    isNumPartitionDifferent, m_uiNumPartition);
+  copyArrMalloc(rhs.m_phQP,          m_phQP,          isNumPartitionDifferent, m_uiNumPartition);
+
+  copyArrNew(rhs.m_ChromaQpAdj,        m_ChromaQpAdj,        isNumPartitionDifferent, m_uiNumPartition);
+  copyArrNew(rhs.m_skipFlag,           m_skipFlag,           isNumPartitionDifferent, m_uiNumPartition);
+  copyArrNew(rhs.m_pePartSize,         m_pePartSize,         isNumPartitionDifferent, m_uiNumPartition);
+  copyArrNew(rhs.m_pePredMode,         m_pePredMode,         isNumPartitionDifferent, m_uiNumPartition);
+  copyArrNew(rhs.m_CUTransquantBypass, m_CUTransquantBypass, isNumPartitionDifferent, m_uiNumPartition);
+
+  for (UInt ch = 0; ch < MAX_NUM_CHANNEL_TYPE; ch++) {
+    copyArrMalloc(rhs.m_puhIntraDir[ch], m_puhIntraDir[ch], isNumPartitionDifferent, m_uiNumPartition);
+  }
+
+  for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
+    copyArrMalloc(rhs.m_crossComponentPredictionAlpha[comp], m_crossComponentPredictionAlpha[comp], isNumPartitionDifferent, m_uiNumPartition);
+    copyArrMalloc(rhs.m_puhTransformSkip[comp],              m_puhTransformSkip[comp],              isNumPartitionDifferent, m_uiNumPartition);
+    copyArrMalloc(rhs.m_explicitRdpcmMode[comp],             m_explicitRdpcmMode[comp],             isNumPartitionDifferent, m_uiNumPartition);
+    copyArrMalloc(rhs.m_puhCbf[comp],                        m_puhCbf[comp],                        isNumPartitionDifferent, m_uiNumPartition);
+    copyArrMalloc(rhs.m_pcTrCoeff[comp],                     m_pcTrCoeff[comp],                     isNumPixelsDifferent,    numPixels[comp]);
+    copyArrMalloc(rhs.m_pcIPCMSample[comp],                  m_pcIPCMSample[comp],                  isNumPixelsDifferent,    numPixels[comp]);
+  }
+
+  for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    copyArrNew(rhs.m_apiMVPIdx[i], m_apiMVPIdx[i], isNumPartitionDifferent, m_uiNumPartition);
+    copyArrNew(rhs.m_apiMVPNum[i], m_apiMVPNum[i], isNumPartitionDifferent, m_uiNumPartition);
+  }
+
+
+  /**
+   * Special property: m_pcArlCoeff
+   */
+#if ADAPTIVE_QP_SELECTION
+  for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
+    if (m_pcArlCoeff[comp] != nullptr && !m_ArlCoeffIsAliasedAllocation && (rhs.m_ArlCoeffIsAliasedAllocation || isNumPixelsDifferent)) {
+      xFree(m_pcArlCoeff[comp]);
+      m_pcArlCoeff[comp] = nullptr;
+    }
+    if (rhs.m_pcArlCoeff[comp] != nullptr && !rhs.m_ArlCoeffIsAliasedAllocation) {
+      if (m_pcArlCoeff[comp] == nullptr) {
+        m_pcArlCoeff[comp] = static_cast<TCoeff*>(xMalloc(TCoeff, numPixels[comp]));
+      }
+      memcpy(m_pcArlCoeff[comp], rhs.m_pcArlCoeff[comp], numPixels[comp] * sizeof(TCoeff));
+    } else {
+      m_pcArlCoeff[comp] = rhs.m_pcArlCoeff[comp];
+    }
+  }
+
+  // Copy property
+  m_ArlCoeffIsAliasedAllocation = rhs.m_ArlCoeffIsAliasedAllocation;
+#endif
+
+
+  /**
+   * Intentionally skipped properties
+   */
+  // TComPic*      m_pcPic;                                ///< picture class pointer
+  // TComSlice*    m_pcSlice;                              ///< slice header pointer
+
+  // TComDataCU*   m_pCtuAboveLeft;                        ///< pointer of above-left CTU.
+  // TComDataCU*   m_pCtuAboveRight;                       ///< pointer of above-right CTU.
+  // TComDataCU*   m_pCtuAbove;                            ///< pointer of above CTU.
+  // TComDataCU*   m_pCtuLeft;                             ///< pointer of left CTU
+}
+
+
 Bool TComDataCU::CUIsFromSameTile            ( const TComDataCU *pCU /* Can be NULL */) const
 {
   return pCU!=NULL &&

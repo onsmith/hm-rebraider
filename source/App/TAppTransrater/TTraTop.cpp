@@ -5,6 +5,14 @@
  * Default constructor for transrater class
  */
 TTraTop::TTraTop() {
+  TEncSlice& sliceEncoder = *getSliceEncoder();
+  TEncCu&    cuEncoder    = *getCuEncoder();
+
+  setDeltaQpRD(0);
+
+  sliceEncoder.init(this);
+  cuEncoder.init(this);
+  cuEncoder.setSliceEncoder(&sliceEncoder);
 }
 
 
@@ -52,6 +60,11 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
   TComPic&   encPic   = xGetEncPicBySlice(slice);
   TComSlice& encSlice = xCopySliceToPic(slice, encPic);
+
+  // Set the current slice
+  encPic.setCurrSliceIdx(encPic.getNumAllocatedSlice() - 1);
+
+  // Compress and encode the slice
   xCompressSlice(encSlice);
   xEncodeSlice(encSlice, outputNalu.m_Bitstream);
 }
@@ -113,6 +126,7 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   TComOutputBitstream sliceBody;
   slice.setFinalized(true);
   slice.clearSubstreamSizes();
+  sliceEncoder.setSliceIdx(slice.getSliceIdx());
   sliceEncoder.encodeSlice(slice.getPic(), &sliceBody, numBinsCoded);
   
   // Write WPP entry point to output bitstream
@@ -135,186 +149,25 @@ Void TTraTop::xCompressSlice(TComSlice& slice) {
 
 
 /**
- * Encode a slice and write to bitstream
- *
-UInt TTraTop::xCompressSlice(TComSlice& slice, TComPic& pic, TComOutputBitstream* bitstreams) {
-  // Cache beginning/ending CTU address for the current slice
-  const UInt startCtuTsAddr = slice.getSliceSegmentCurStartCtuTsAddr();
-  const UInt endCtuTsAddr   = slice.getSliceSegmentCurEndCtuTsAddr();
-
-  // Cache frame width
-  const UInt frameWidthInCtus = pic.getPicSym()->getFrameWidthInCtus();
-
-  // Cache slice options from PPS
-  const Bool areDependentSliceSegmentsEnabled = slice.getPPS()->getDependentSliceSegmentsEnabledFlag();
-  const Bool areWavefrontsEnabled             = slice.getPPS()->getEntropyCodingSyncEnabledFlag();
-
-  // Initialise entropy code encoder for the slice
-  m_sbacEncoder.init(&m_cabacEncoder);
-  m_entropyEncoder.setEntropyCoder(&m_sbacEncoder);
-  m_entropyEncoder.resetEntropy(&slice);
-
-  // Reset cabac encoder
-  UInt numBinsCoded = 0;
-  m_cabacEncoder.setBinCountingEnableFlag(true);
-  m_cabacEncoder.setBinsCoded(0);
-
-  // If this is a dependent slice, load contexts from previous slice segment
-  if (areDependentSliceSegmentsEnabled) {
-    const UInt      ctuRasterScanAddress = pic.getPicSym()->getCtuTsToRsAddrMap(startCtuTsAddr);
-    const UInt      currentTileIndex     = pic.getPicSym()->getTileIdxMap(ctuRasterScanAddress);
-    const TComTile& currentTile          = *pic.getPicSym()->getTComTile(currentTileIndex);
-    const UInt      firstCtuOfTileRsAddr = currentTile.getFirstCtuRsAddr();
-
-    const Bool isDependentSlice = (
-      slice.getDependentSliceSegmentFlag() &&
-      ctuRasterScanAddress != firstCtuOfTileRsAddr &&
-      (currentTile.getTileWidthInCtus() >= 2 || !areWavefrontsEnabled)
-    );
-
-    if (isDependentSlice) {
-      m_sbacEncoder.loadContexts(&m_lastSliceSegmentEndContextState);
-    }
-  }
-
-  // Loop through every CTU in the slice segment
-  for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
-    const UInt      ctuRsAddr            = pic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
-    const TComTile& currentTile          = *pic.getPicSym()->getTComTile(pic.getPicSym()->getTileIdxMap(ctuRsAddr));
-    const UInt      firstCtuRsAddrOfTile = currentTile.getFirstCtuRsAddr();
-    const UInt      tileXPosInCtus       = firstCtuRsAddrOfTile % frameWidthInCtus;
-    const UInt      tileYPosInCtus       = firstCtuRsAddrOfTile / frameWidthInCtus;
-    const UInt      ctuXPosInCtus        = ctuRsAddr % frameWidthInCtus;
-    const UInt      ctuYPosInCtus        = ctuRsAddr / frameWidthInCtus;
-    const UInt      uiSubStrm            = pic.getSubstreamForCtuAddr(ctuRsAddr, true, &slice);
-    TComDataCU&     ctu                  = *pic.getCtu(ctuRsAddr);
-
-    // Set output stream
-    m_entropyEncoder.setBitstream(&bitstreams[uiSubStrm]);
-
-    // Set up CABAC contexts state for this CTU
-    if (ctuRsAddr == firstCtuRsAddrOfTile) {
-      if (ctuTsAddr != startCtuTsAddr) { // if it is the first CTU, then the entropy coder has already been reset
-        m_entropyEncoder.resetEntropy(&slice);
-      }
-    } else if (ctuXPosInCtus == tileXPosInCtus && areWavefrontsEnabled) {
-      // Synchronize cabac probabilities with upper-right CTU if it's available and at the start of a line.
-      if (ctuTsAddr != startCtuTsAddr) { // if it is the first CTU, then the entropy coder has already been reset
-        m_entropyEncoder.resetEntropy(&slice);
-      }
-      TComDataCU* pCtuUp = ctu.getCtuAbove();
-      if (pCtuUp != nullptr && (ctuRsAddr % frameWidthInCtus + 1) < frameWidthInCtus) {
-        TComDataCU* pCtuTR = pic.getCtu(ctuRsAddr - frameWidthInCtus + 1);
-        if (ctu.CUIsFromSameSliceAndTile(pCtuTR)) {
-          // Top-right is available, so use it.
-          m_sbacEncoder.loadContexts(&m_entropyCodingSyncContextState);
-        }
-      }
-    }
-
-    // If SAO is enabled, encode SAO parameters
-    if (slice.getSPS()->getUseSAO()) {
-      Bool isSAOSliceEnabled = false;
-      Bool sliceEnabled[MAX_NUM_COMPONENT];
-      for (Int comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
-        ComponentID compId   = static_cast<ComponentID>(comp);
-        ChannelType chanType = toChannelType(compId);
-
-        sliceEnabled[comp] = (
-          slice.getSaoEnabledFlag(chanType) &&
-          comp < pic.getNumberValidComponents()
-        );
-
-        isSAOSliceEnabled = isSAOSliceEnabled || sliceEnabled[comp];
-      }
-
-      if (isSAOSliceEnabled) {
-        SAOBlkParam& saoblkParam = pic.getPicSym()->getSAOBlkParam()[ctuRsAddr];
-
-        // Merge left condition
-        const Bool isLeftMergeAvailable = (
-          ctuRsAddr % frameWidthInCtus > 0 &&
-          pic.getSAOMergeAvailability(ctuRsAddr, ctuRsAddr - 1)
-        );
-
-        // Merge up condition
-        const Bool isAboveMergeAvailable = (
-          ctuRsAddr / frameWidthInCtus > 0 &&
-          pic.getSAOMergeAvailability(ctuRsAddr, ctuRsAddr-frameWidthInCtus)
-        );
-
-        // Encode parameters
-        m_entropyEncoder.encodeSAOBlkParam(
-          saoblkParam,
-          pic.getPicSym()->getSPS().getBitDepths(),
-          sliceEnabled,
-          isLeftMergeAvailable,
-          isAboveMergeAvailable
-        );
-      }
-    }
-
-    m_cuEncoder.encodeCtu(&ctu);
-
-    // Store probabilities of second CTU in line into buffer
-    if (ctuXPosInCtus == tileXPosInCtus+1 && areWavefrontsEnabled) {
-      m_entropyCodingSyncContextState.loadContexts(m_sbacEncoder);
-    }
-
-    // terminate the sub-stream, if required (end of slice-segment, end of tile, end of wavefront-CTU-row):
-    if (ctuTsAddr+1 == endCtuTsAddr ||
-         (  ctuXPosInCtus + 1 == tileXPosInCtus + currentTile.getTileWidthInCtus() &&
-          ( ctuYPosInCtus + 1 == tileYPosInCtus + currentTile.getTileHeightInCtus() || areWavefrontsEnabled)
-         )
-       )
-    {
-      m_entropyEncoder.encodeTerminatingBit(1);
-      m_entropyEncoder.encodeSliceFinish();
-      // Byte-alignment in slice_data() when new tile
-      bitstreams[uiSubStrm].writeByteAlignment();
-
-      // write sub-stream size
-      if (ctuTsAddr+1 != endCtuTsAddr) {
-        slice.addSubstreamSize((bitstreams[uiSubStrm].getNumberOfWrittenBits() >> 3) + bitstreams[uiSubStrm].countStartCodeEmulations());
-      }
-    }
-  } // CTU-loop
-
-  if (areDependentSliceSegmentsEnabled) {
-    m_lastSliceSegmentEndContextState.loadContexts(m_sbacEncoder); //ctx end of dep.slice
-  }
-
-  if (m_pcCfg->getUseAdaptQpSelect()) {
-    m_transQuant.storeSliceQpNext(&slice); // TODO: this will only be storing the adaptive QP state of the very last slice-segment that is not dependent in the frame... Perhaps this should be moved to the compress slice loop.
-  }
-
-  if (slice.getPPS()->getCabacInitPresentFlag() && !slice.getPPS()->getDependentSliceSegmentsEnabledFlag()) {
-    m_encCABACTableIdx = m_entropyEncoder.determineCabacInitIdx(&slice);
-  } else {
-    m_encCABACTableIdx = slice.getSliceType();
-  }
-
-  numBinsCoded = m_cabacEncoder.getBinsCoded();
-}*/
-
-
-/**
  * Resolve a TComSlice into its corresponding encoder TComPic
  */
 TComPic& TTraTop::xGetEncPicBySlice(const TComSlice& slice) {
+  // Search for existing TComPic with the desired POC
   TComPic* pPic = xGetEncPicByPoc(slice.getPOC());
   if (pPic != nullptr) {
     return *pPic;
   }
 
+  // Get an unused entry in the buffer for the new TComPic
   TComPic*& pPicEntry = xGetUnusedEntry();
   if (pPicEntry == nullptr) {
     pPicEntry = new TComPic;
   }
 
-  TComPPS& pps = *getPpsMap()->getPS(slice.getPPSId());
-  TComSPS& sps = *getSpsMap()->getPS(pps.getSPSId());
-  pPicEntry->create(sps, pps, false, true);
+  // Set up the new TComPic
+  xCopyDecPic(*slice.getPic(), *pPicEntry);
+
+  // Return the new TComPic
   return *pPicEntry;
 }
 
@@ -327,8 +180,22 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
   dstPic.allocateNewSlice();
   TComSlice& dstSlice = *dstPic.getSlice(dstPic.getNumAllocatedSlice() - 1);
 
-  // Copy slice data to destination slice
+  // Copy basic slice data to destination slice
   dstSlice.copySliceInfo(&srcSlice);
+
+  // Copy decoded slice information
+  const TComPic& srcPic         = *srcSlice.getPic();
+  const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
+  const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
+  for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
+    const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
+    const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
+          TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
+    dstCtu = srcCtu;
+  }
+
+  // Use encoder picture object instead of decoder object
+  dstSlice.setPic(&dstPic);
 
   // Use encoder picture references instead of decoder references
   for (Int iList = 0; iList < NUM_REF_PIC_LIST_01; iList++) {
@@ -357,6 +224,11 @@ TComPic*& TTraTop::xGetUnusedEntry() {
     TComPic*& pPic = *it;
 
     if (pPic != nullptr && !pPic->getOutputMark()) {
+      // Bypass dpb management, just reuse picture
+      if (!pPic->getReconMark() || !pPic->getSlice(0)->isReferenced()) {
+        return pPic;
+      }
+
       if (!pPic->getReconMark()) {
         return pPic;
 
@@ -389,4 +261,46 @@ TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
   }
 
   return nullptr;
+}
+
+
+/**
+ * Set up an encoder TComPic by copying relevant configuration from a
+ *   corresponding decoded TComPic
+ */
+Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
+  // Get the encoder TComPPS and TComSPS for this TComPic
+  TComPPS& pps = *getPpsMap()->getPS(srcPic.getPicSym()->getPPS().getPPSId());
+  TComSPS& sps = *getSpsMap()->getPS(srcPic.getPicSym()->getSPS().getSPSId());
+
+  // Reinitialize the encoder TComPic
+  dstPic.setPicYuvOrg(nullptr);
+  dstPic.setPicYuvTrueOrg(nullptr);
+  dstPic.create(sps, pps, false, true);
+  
+  // Copy relevant TComPic data
+  dstPic.setTLayer(srcPic.getTLayer());
+  dstPic.setUsedByCurr(srcPic.getUsedByCurr());
+  dstPic.setIsLongTerm(srcPic.getIsLongTerm());
+  dstPic.setReconMark(srcPic.getReconMark());
+  dstPic.setOutputMark(srcPic.getOutputMark());
+  dstPic.setCurrSliceIdx(srcPic.getCurrSliceIdx());
+  dstPic.setCheckLTMSBPresent(srcPic.getCheckLTMSBPresent());
+  dstPic.setTopField(srcPic.isTopField());
+  dstPic.setField(srcPic.isField());
+  // TODO: m_SEIs
+
+  // Copy relevant TComPicSym data
+  // TODO: m_pictureCtuArray;
+  // TODO: m_dpbPerCtuData;
+  // TODO: m_saoBlkParams;
+
+#if ADAPTIVE_QP_SELECTION
+  // TODO: m_pParentARLBuffer;
+#endif
+
+  // Use decoded TComPicYuv plane as encoder source plane
+  TComPicYuv* reconPlane = const_cast<TComPic&>(srcPic).getPicYuvRec();
+  dstPic.setPicYuvOrg(reconPlane);
+  dstPic.setPicYuvTrueOrg(reconPlane);
 }

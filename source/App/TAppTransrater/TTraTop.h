@@ -55,32 +55,6 @@
 
 
 class TTraTop : public TEncTop {
-protected:
-  // Coding picture buffer
-  //TTraPictureBuffer m_cpb;
-
-  // Retain a pointer to the decoded video parameter set
-  //const TComVPS* m_vps;
-
-  // Store copies of all SPS and PPS transcoded
-  //ParameterSetMap<TComSPS> m_spsMap;
-  //ParameterSetMap<TComPPS> m_ppsMap;
-
-  // Slice encoder
-  //TEncSlice m_sliceEncoder;
-
-  // Entropy code helper objects
-  //TEncEntropy  m_entropyEncoder; // generic entropy encoder
-  //TEncCavlc    m_cavlcEncoder;   // context-adaptive variable length code encoder
-  //TEncSbac     m_sbacEncoder;    // syntax-based arithmetic code encoder
-  //TEncBinCABAC m_cabacEncoder;   // context-adaptive binary arithemtic code encoder
-
-  //TComTrQuant  m_transQuant;     // transform & quantization class
-  //TEncCu       m_cuEncoder;      // coding unit encoder
-  //TComLoopFilter          m_cLoopFilter;  // deblocking filter class
-  //TEncSampleAdaptiveOffset m_cEncSAO;     // sample adaptive offset class
-
-
 public:
   // Default constructor
   TTraTop();
@@ -127,9 +101,10 @@ protected:
   
   // Get an unused entry from the picture buffer
   TComPic*& xGetUnusedEntry();
-
-  // Encode a slice and write to bitstream
-  //UInt xCompressSlice(TComSlice& slice, TComPic& pic, TComOutputBitstream* bitstreams);
+  
+  // Set up an encoder TComPic by copying relevant configuration from a
+  //   corresponding decoded TComPic
+  Void xCopyDecPic(const TComPic& srcPic, TComPic& dstPic);
 };
 
 
