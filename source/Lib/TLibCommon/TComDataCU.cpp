@@ -409,13 +409,57 @@ inline static Void copyArrNew(T* const & src, T*& dst, Bool isArrResized, UInt a
 
 TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
   /**
+   * Determine if array properties with length based on number of partitions in
+   *   the CU need to be resized
+   */
+  Bool isNumPartitionDifferent = (m_uiNumPartition != rhs.m_uiNumPartition);
+
+
+
+  /**
    * Calculate number of pixels in each component of the CU
    */
+  assert(rhs.m_pcPic != nullptr);
+
   UInt numPixels[MAX_NUM_COMPONENT];
-  for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
-    const ComponentID compID = ComponentID(comp);
-    const UInt chromaShift = getComponentScaleX(compID, chromaFormatIDC) + getComponentScaleY(compID, chromaFormatIDC);
-    numPixels[comp] = (uiWidth * uiHeight) >> chromaShift;
+
+  {
+    const TComSPS&     sps          = rhs.m_pcPic->getPicSym()->getSPS();
+    const ChromaFormat chromaFormat = sps.getChromaFormatIdc();
+    const UInt         rawNumPixels = sps.getMaxCUWidth() * sps.getMaxCUHeight();
+
+    for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
+      const ComponentID compID = static_cast<ComponentID>(comp);
+      const UInt chromaShift =
+        getComponentScaleX(compID, chromaFormat) +
+        getComponentScaleY(compID, chromaFormat);
+      numPixels[comp] = (rawNumPixels >> chromaShift);
+    }
+  }
+
+
+  /**
+   * Determine if array properties with length based on number of pixels in the
+   *   CU need to be resized
+   */
+  Bool isNumPixelsDifferent = false;
+  if (m_pcPic == nullptr) {
+    isNumPixelsDifferent = true;
+  } else {
+    const TComSPS&     sps          = m_pcPic->getPicSym()->getSPS();
+    const ChromaFormat chromaFormat = sps.getChromaFormatIdc();
+    const UInt         rawNumPixels = sps.getMaxCUWidth() * sps.getMaxCUHeight();
+
+    for (UInt comp = 0; comp < MAX_NUM_COMPONENT; comp++) {
+      const ComponentID compID = static_cast<ComponentID>(comp);
+      const UInt chromaShift =
+        getComponentScaleX(compID, chromaFormat) +
+        getComponentScaleY(compID, chromaFormat);
+      if (numPixels[comp] != (rawNumPixels >> chromaShift)) {
+        isNumPixelsDifferent = true;
+        break;
+      }
+    }
   }
 
 
@@ -442,11 +486,13 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
 
   m_cMvPred           = rhs.m_cMvPred;
 
+  m_uiNumPartition    = rhs.m_uiNumPartition;
+
   // TODO: This may leak state
-  for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+  /*for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
     m_acCUMvField[i].destroy();
     m_acCUMvField[i] = rhs.m_acCUMvField[i];
-  }
+  }*/
 
 
   /**
@@ -462,14 +508,8 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
 
 
   /**
-   * If the CUs have different number of partitions, then resize memory of array
-   *   properties
+   * Copy and/or resize memory of array properties
    */
-  Bool isNumPartitionDifferent = (m_uiNumPartition != rhs.m_uiNumPartition);
-  Bool isNumPixelsDifferent    = isNumPartitionDifferent;
-
-  m_uiNumPartition = rhs.m_uiNumPartition;
-
   copyArrMalloc(rhs.m_puhDepth,      m_puhDepth,      isNumPartitionDifferent, m_uiNumPartition);
   copyArrMalloc(rhs.m_puhWidth,      m_puhWidth,      isNumPartitionDifferent, m_uiNumPartition);
   copyArrMalloc(rhs.m_puhHeight,     m_puhHeight,     isNumPartitionDifferent, m_uiNumPartition);
@@ -539,6 +579,8 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
   // TComDataCU*   m_pCtuAboveRight;                       ///< pointer of above-right CTU.
   // TComDataCU*   m_pCtuAbove;                            ///< pointer of above CTU.
   // TComDataCU*   m_pCtuLeft;                             ///< pointer of left CTU
+
+  return *this;
 }
 
 
@@ -3392,5 +3434,34 @@ Bool TComDataCU::isLastColumnCTUInTile() const
   return (rightEdgeCTUPosInCurrentTile == ctuXPosInCtus);
 }
 #endif
+
+
+/**
+ * Sets the picture pointer, neighboring CU pointers, and CTU raster scan
+ *   address
+ */
+Void TComDataCU::attachToPic(TComPic& pic, UInt rasterScanAddress) {
+  m_pcPic     = &pic;
+  m_ctuRsAddr = rasterScanAddress;
+
+  const UInt frameWidthInCtus = pic.getPicSym()->getFrameWidthInCtus();
+
+  if (m_ctuRsAddr % frameWidthInCtus > 0) {
+    m_pCtuLeft = pic.getCtu(m_ctuRsAddr - 1);
+  }
+
+  if (m_ctuRsAddr / frameWidthInCtus > 0) {
+    m_pCtuAbove = pic.getCtu(m_ctuRsAddr - frameWidthInCtus);
+  }
+
+  if (m_pCtuLeft != nullptr && m_pCtuAbove != nullptr) {
+    m_pCtuAboveLeft = pic.getCtu(m_ctuRsAddr - frameWidthInCtus - 1);
+  }
+
+  if (m_pCtuAbove != nullptr && m_ctuRsAddr % frameWidthInCtus < frameWidthInCtus - 1) {
+    m_pCtuAboveRight = pic.getCtu(m_ctuRsAddr - frameWidthInCtus + 1);
+  }
+}
+
 
 //! \}

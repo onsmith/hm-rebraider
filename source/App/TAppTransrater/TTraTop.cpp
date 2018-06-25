@@ -107,9 +107,31 @@ Void TTraTop::xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream) {
 
 
 /**
+ * Local, static helper function to calculate the number of encoding substreams
+ *   to allocate for encoding a given slice
+ */
+static inline Int numEncSubstreams(const TComSlice& slice) {
+  const TComPPS& pps = *slice.getPPS();
+  const Int numSubstreamCols = pps.getNumTileColumnsMinus1() + 1;
+  const Int numSubstreamRows =
+    pps.getEntropyCodingSyncEnabledFlag() ?
+    slice.getPic()->getFrameHeightInCtus() :
+    pps.getNumTileRowsMinus1() + 1;
+  return numSubstreamRows * numSubstreamCols;
+}
+
+
+/**
  * Encode a slice and write to bitstream
  */
 Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
+  // The provided slice must have an associated TComPic
+  TComPic& pic = *slice.getPic();
+
+  // Allocate temporary encoding substreams
+  std::vector<TComOutputBitstream> substreams(numEncSubstreams(slice));
+
+  // Get encoder references
   TEncEntropy& entropyEncoder = *getEntropyCoder();
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   TEncSlice&   sliceEncoder   = *getSliceEncoder();
@@ -121,22 +143,25 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   slice.setEncCABACTableIdx(sliceEncoder.getEncCABACTableIdx());
   entropyEncoder.encodeSliceHeader(&slice);
 
-  // Encode slice body to temporary bitstream
+  // Encode slice body data to temporary substreams
   UInt numBinsCoded = 0;
-  TComOutputBitstream sliceBody;
   slice.setFinalized(true);
   slice.clearSubstreamSizes();
   sliceEncoder.setSliceIdx(slice.getSliceIdx());
-  sliceEncoder.encodeSlice(slice.getPic(), &sliceBody, numBinsCoded);
+  sliceEncoder.encodeSlice(&pic, substreams.data(), numBinsCoded);
   
-  // Write WPP entry point to output bitstream
+  // Write WPP entry points to output bitstream
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.setBitstream(&bitstream);
   entropyEncoder.encodeTilesWPPEntryPoint(&slice);
 
-  // Write slice body to output bitstream
+  // Concatenate substreams and append to the output bitstream
   bitstream.writeByteAlignment();
-  bitstream.addSubstream(&sliceBody);
+  const Int numZeroSubstreamsAtStartOfSlice = pic.getSubstreamForCtuAddr(slice.getSliceSegmentCurStartCtuTsAddr(), false, &slice);
+  const Int numSubstreamsToCode             = slice.getNumberOfSubstreamSizes() + 1;
+  for (UInt substreamIndex = 0 ; substreamIndex < numSubstreamsToCode; substreamIndex++) {
+    bitstream.addSubstream(substreams.data() + substreamIndex + numZeroSubstreamsAtStartOfSlice);
+  }
 }
 
 
@@ -184,14 +209,17 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
   dstSlice.copySliceInfo(&srcSlice);
 
   // Copy decoded slice information
-  const TComPic& srcPic         = *srcSlice.getPic();
-  const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
-  const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
-  for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
-    const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
-    const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
-          TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
-    dstCtu = srcCtu;
+  {
+    const TComPic& srcPic         = *srcSlice.getPic();
+    const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
+    const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
+    for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
+      const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
+      const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
+            TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
+      dstCtu = srcCtu;
+      dstCtu.setSlice(&dstSlice);
+    }
   }
 
   // Use encoder picture object instead of decoder object
@@ -291,7 +319,6 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   // TODO: m_SEIs
 
   // Copy relevant TComPicSym data
-  // TODO: m_pictureCtuArray;
   // TODO: m_dpbPerCtuData;
   // TODO: m_saoBlkParams;
 
@@ -299,8 +326,16 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   // TODO: m_pParentARLBuffer;
 #endif
 
+  // Set up m_pictureCtuArray pointers
+  for (UInt ctuRsAddr = 0; ctuRsAddr < dstPic.getPicSym()->getNumberOfCtusInFrame(); ctuRsAddr++) {
+    dstPic.getCtu(ctuRsAddr)->attachToPic(dstPic, ctuRsAddr);
+  }
+
   // Use decoded TComPicYuv plane as encoder source plane
   TComPicYuv* reconPlane = const_cast<TComPic&>(srcPic).getPicYuvRec();
   dstPic.setPicYuvOrg(reconPlane);
   dstPic.setPicYuvTrueOrg(reconPlane);
+
+  // Clear slice buffer
+  dstPic.clearSliceBuffer();
 }

@@ -201,8 +201,10 @@ public:
 
   TComPic*         getPic                     ( )                                                          { return m_pcPic;                            }
   const TComPic*   getPic                     ( ) const                                                    { return m_pcPic;                            }
+  Void             setPic                     ( TComPic* pcPic )                                           { m_pcPic = pcPic;                           }
   TComSlice*       getSlice                   ( )                                                          { return m_pcSlice;                          }
   const TComSlice* getSlice                   ( ) const                                                    { return m_pcSlice;                          }
+  Void             setSlice                   ( TComSlice* pcSlice )                                       { m_pcSlice = pcSlice;                       }
   UInt&         getCtuRsAddr                  ( )                                                          { return m_ctuRsAddr;                        }
   UInt          getCtuRsAddr                  ( ) const                                                    { return m_ctuRsAddr;                        }
   UInt          getZorderIdxInCtu             ( ) const                                                    { return m_absZIdxInCtu;                     }
@@ -214,6 +216,10 @@ public:
   Void          setDepth                      ( UInt uiIdx, UChar uh )                                     { m_puhDepth[uiIdx] = uh;                    }
 
   Void          setDepthSubParts              ( UInt uiDepth, UInt uiAbsPartIdx );
+
+  // Sets the picture pointer, neighboring CU pointers, and CTU raster scan
+  //   address
+  Void          attachToPic                   ( TComPic& pic, UInt rasterScanAddress );
 
 #if MCTS_ENC_CHECK
   Void          setTMctsMvpIsValid(Bool b)    { m_tMctsMvpIsValid = b; }
