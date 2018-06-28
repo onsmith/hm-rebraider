@@ -1359,6 +1359,9 @@ private:
 public:
                               TComSlice();
   virtual                     ~TComSlice();
+
+  TComSlice&                  operator=(const TComSlice& rhs);
+
   Void                        initSlice();
 
   Void                        setVPS( TComVPS* pcVPS )                               { m_pcVPS = pcVPS;                                              }
@@ -1376,7 +1379,7 @@ public:
   Void                        setSaoEnabledFlag(ChannelType chType, Bool s)          {m_saoEnabledFlag[chType] =s;                                   }
   Bool                        getSaoEnabledFlag(ChannelType chType) const            { return m_saoEnabledFlag[chType];                              }
   Void                        setRPS( const TComReferencePictureSet *pcRPS )         { m_pRPS = pcRPS;                                               }
-  const TComReferencePictureSet* getRPS()                                            { return m_pRPS;                                                }
+  const TComReferencePictureSet* getRPS() const                                      { return m_pRPS;                                                }
   TComReferencePictureSet*    getLocalRPS()                                          { return &m_localRPS;                                           }
 
   Void                        setRPSidx( Int rpsIdx )                                { m_rpsIdx = rpsIdx;                                            }

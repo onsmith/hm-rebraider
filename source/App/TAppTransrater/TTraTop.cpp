@@ -230,26 +230,10 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
   dstPic.allocateNewSlice();
   TComSlice& dstSlice = *dstPic.getSlice(dstPic.getNumAllocatedSlice() - 1);
 
-  // Copy basic slice data to destination slice
-  dstSlice.copySliceInfo(&srcSlice);
-  dstSlice.setRPSidx(srcSlice.getRPSidx());
-
-  // Copy decoded slice information
-  {
-    const TComPic& srcPic         = *srcSlice.getPic();
-    const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
-    const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
-    for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
-      const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
-      const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
-            TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
-      dstCtu = srcCtu;
-      dstCtu.setSlice(&dstSlice);
-    }
-  }
-
-  // Use encoder picture object instead of decoder object
+  // Copy slice data to destination slice
+  dstSlice = srcSlice;
   dstSlice.setPic(&dstPic);
+  dstSlice.setRPS(srcSlice.getRPS());
 
   // Use encoder picture references instead of decoder references
   for (Int iList = 0; iList < NUM_REF_PIC_LIST_01; iList++) {
@@ -260,6 +244,20 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
         TComPic* encRefPic = xGetEncPicByPoc(decRefPic->getPOC());
         dstSlice.setRefPic(encRefPic, iRefPicList, iPic);
       }
+    }
+  }
+
+  // Copy TComDataCUs corresponding to the slice
+  {
+    const TComPic& srcPic         = *srcSlice.getPic();
+    const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
+    const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
+    for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
+      const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
+      const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
+            TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
+      dstCtu = srcCtu;
+      dstCtu.setSlice(&dstSlice);
     }
   }
 

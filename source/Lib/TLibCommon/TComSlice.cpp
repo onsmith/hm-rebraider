@@ -2243,4 +2243,123 @@ Void calculateParameterSetChangedFlag(Bool &bChanged, const std::vector<UChar> *
   }
 }
 
+
+TComSlice& TComSlice::operator=(const TComSlice& rhs) {
+  m_iPOC                           = rhs.m_iPOC;
+  m_eNalUnitType                   = rhs.m_eNalUnitType;
+  m_eSliceType                     = rhs.m_eSliceType;
+  m_iSliceQp                       = rhs.m_iSliceQp;
+  m_ChromaQpAdjEnabled             = rhs.m_ChromaQpAdjEnabled;
+  m_deblockingFilterDisable        = rhs.m_deblockingFilterDisable;
+  m_deblockingFilterOverrideFlag   = rhs.m_deblockingFilterOverrideFlag;
+  m_deblockingFilterBetaOffsetDiv2 = rhs.m_deblockingFilterBetaOffsetDiv2;
+  m_deblockingFilterTcOffsetDiv2   = rhs.m_deblockingFilterTcOffsetDiv2;
+  m_bCheckLDC                      = rhs.m_bCheckLDC;
+  m_iSliceQpDelta                  = rhs.m_iSliceQpDelta;
+  m_iDepth                         = rhs.m_iDepth;
+  m_bRefenced                      = rhs.m_bRefenced;
+  m_iLastIDR                       = rhs.m_iLastIDR;
+  m_colFromL0Flag                  = rhs.m_colFromL0Flag;
+  m_colRefIdx                      = rhs.m_colRefIdx;
+  m_uiTLayer                       = rhs.m_uiTLayer;
+  m_bTLayerSwitchingFlag           = rhs.m_bTLayerSwitchingFlag;
+  m_sliceMode                      = rhs.m_sliceMode;
+  m_sliceArgument                  = rhs.m_sliceArgument;
+  m_sliceCurStartCtuTsAddr         = rhs.m_sliceCurStartCtuTsAddr;
+  m_sliceCurEndCtuTsAddr           = rhs.m_sliceCurEndCtuTsAddr;
+  m_sliceIdx                       = rhs.m_sliceIdx;
+  m_sliceSegmentMode               = rhs.m_sliceSegmentMode;
+  m_sliceSegmentArgument           = rhs.m_sliceSegmentArgument;
+  m_sliceSegmentCurStartCtuTsAddr  = rhs.m_sliceSegmentCurStartCtuTsAddr;
+  m_sliceSegmentCurEndCtuTsAddr    = rhs.m_sliceSegmentCurEndCtuTsAddr;
+  m_nextSlice                      = rhs.m_nextSlice;
+  m_nextSliceSegment               = rhs.m_nextSliceSegment;
+  m_cabacInitFlag                  = rhs.m_cabacInitFlag;
+  m_bLMvdL1Zero                    = rhs.m_bLMvdL1Zero;
+  m_LFCrossSliceBoundaryFlag       = rhs.m_LFCrossSliceBoundaryFlag;
+  m_enableTMVPFlag                 = rhs.m_enableTMVPFlag;
+  m_maxNumMergeCand                = rhs.m_maxNumMergeCand;
+  m_encCABACTableIdx               = rhs.m_encCABACTableIdx;
+  m_iPPSId                         = rhs.m_iPPSId;
+  m_PicOutputFlag                  = rhs.m_PicOutputFlag;
+  m_iAssociatedIRAP                = rhs.m_iAssociatedIRAP;
+  m_iAssociatedIRAPType            = rhs.m_iAssociatedIRAPType;
+  m_rpsIdx                         = rhs.m_rpsIdx;
+  m_RefPicListModification         = rhs.m_RefPicListModification;
+  m_dependentSliceSegmentFlag      = rhs.m_dependentSliceSegmentFlag;
+  m_noOutputPriorPicsFlag          = rhs.m_noOutputPriorPicsFlag;
+  m_noRaslOutputFlag               = rhs.m_noRaslOutputFlag;
+  m_handleCraAsBlaFlag             = rhs.m_handleCraAsBlaFlag;
+  m_sliceBits                      = rhs.m_sliceBits;
+  m_sliceSegmentBits               = rhs.m_sliceSegmentBits;
+  m_bFinalized                     = rhs.m_bFinalized;
+  m_bTestWeightPred                = rhs.m_bTestWeightPred;
+  m_bTestWeightBiPred              = rhs.m_bTestWeightBiPred;
+  m_substreamSizes                 = rhs.m_substreamSizes;
+  m_temporalLayerNonReferenceFlag  = rhs.m_temporalLayerNonReferenceFlag;
+  m_localRPS                       = rhs.m_localRPS;
+
+#if ADAPTIVE_QP_SELECTION
+  m_iSliceQpBase = rhs.m_iSliceQpBase;
+#endif
+
+  for (Int i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    m_aiNumRefIdx[i] = rhs.m_aiNumRefIdx[i];
+  }
+
+  for (Int i = 0; i < MAX_NUM_REF; i++) {
+    m_list1IdxToList0Idx[i] = rhs.m_list1IdxToList0Idx[i];
+  }
+
+  for (Int component = 0; component < MAX_NUM_COMPONENT; component++) {
+    m_weightACDCParam[component]     = rhs.m_weightACDCParam[component];
+    m_iSliceChromaQpDelta[component] = rhs.m_iSliceChromaQpDelta[component];
+  }
+
+  for (Int i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    for (Int j = 0; j < MAX_NUM_REF; j++) {
+      m_aiRefPOCList[i][j]      = rhs.m_aiRefPOCList[i][j];
+      m_bIsUsedAsLongTerm[i][j] = rhs.m_bIsUsedAsLongTerm[i][j];
+    }
+    m_bIsUsedAsLongTerm[i][MAX_NUM_REF] = rhs.m_bIsUsedAsLongTerm[i][MAX_NUM_REF];
+  }
+
+  setLambdas(rhs.getLambdas());
+
+  for (Int i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    for (Int j = 0; j < MAX_NUM_REF; j++) {
+      for (Int k = 0; k < MAX_NUM_REF; k++) {
+        m_abEqualRef[i][j][k] = rhs.m_abEqualRef[i][j][k];
+      }
+    }
+  }
+
+  for (Int e = 0; e < NUM_REF_PIC_LIST_01; e++) {
+    for (Int n = 0; n < MAX_NUM_REF; n++) {
+      memcpy(
+        m_weightPredTable[e][n],
+        rhs.m_weightPredTable[e][n],
+        sizeof(WPScalingParam) * MAX_NUM_COMPONENT
+      );
+    }
+  }
+
+  for (Int ch = 0; ch < MAX_NUM_CHANNEL_TYPE; ch++) {
+    m_saoEnabledFlag[ch] = rhs.m_saoEnabledFlag[ch];
+  }
+
+  /**
+   * Intentionally skipped properties
+   */
+  // m_pcPic
+  // m_apcRefPicList
+  // m_pcVPS
+  // m_pcSPS
+  // m_pcPPS
+  // m_pRPS
+
+  return *this;
+}
+
+
 //! \}
