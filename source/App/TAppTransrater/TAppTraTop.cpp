@@ -152,7 +152,7 @@ Void TAppTraTop::transrate() {
       // Parse nal unit header
       read(nalu);
 
-      // Determine if the nal unit should be decoded
+      // Determine if the nal unit comes from a temporal ID marked for decoding
       Bool willDecodeTemporalId = (
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
@@ -172,14 +172,20 @@ Void TAppTraTop::transrate() {
         m_transcoder.transcode(nalu, reencodedNalu);
       }
 
-      // Write any produced access units to output stream
-      /* TODO: Right now, each re-encoded NAL unit is put in its own AccessUnit
-       *   for encoding. A better approach would probably be to batch re-encoded
-       *   NAL units in a single AccessUnit and encode them all at once.
-       */
-      AccessUnit au;
-      au.push_front(new NALUnitEBSP(reencodedNalu));
-      writeAnnexB(outputStream, au);
+      // Add the new NAL unit to the current access unit
+      if (!wasNewPictureFound) {
+        m_currentAccessUnit.push_back(new NALUnitEBSP(reencodedNalu));
+        
+        // TODO: Technically, it's probably better to wait for a new access unit
+        //   signal before flushing the access unit, but for now we will flush
+
+        xFlushAccessUnit(outputStream);
+
+        // Flush access unit
+        //if (xIsFirstNalUnitOfNewAccessUnit(nalu)) {
+        //  xFlushAccessUnit(outputStream);
+        //}
+      }
     }
 
     // If a new picture was found in the current NAL unit, adjust the input
@@ -268,6 +274,7 @@ Void TAppTraTop::transrate() {
   }
 
   // Send any remaining pictures to output
+  //xFlushAccessUnit(outputStream);
   xFlushPictureBuffer(dpb);
 
   // Free decoder resources
@@ -718,7 +725,11 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
       break;
 
     case NAL_UNIT_PREFIX_SEI:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
     case NAL_UNIT_SUFFIX_SEI:
+      m_transcoder.finishPic(*m_decoder.getCurPic());
       m_transcoder.transcode(sourceNalu, encodedNalu);
       break;
 
@@ -803,6 +814,60 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
       assert(0);
       break;
   }
+}
+
+
+/**
+ * Checks if the given nal unit signals the start of a new access unit
+ *
+ * See: Section 7.4.2.4.4 of the HEVC HM spec
+ */
+Bool TAppTraTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
+  if (nalu.m_nuhLayerId != 0) {
+    return false;
+  }
+
+  switch (nalu.m_nalUnitType) {
+    case NAL_UNIT_ACCESS_UNIT_DELIMITER:
+
+    case NAL_UNIT_VPS:
+    case NAL_UNIT_SPS:
+    case NAL_UNIT_PPS:
+
+    case NAL_UNIT_PREFIX_SEI:
+
+    case NAL_UNIT_RESERVED_NVCL41:
+    case NAL_UNIT_RESERVED_NVCL42:
+    case NAL_UNIT_RESERVED_NVCL43:
+    case NAL_UNIT_RESERVED_NVCL44:
+
+    case NAL_UNIT_UNSPECIFIED_48:
+    case NAL_UNIT_UNSPECIFIED_49:
+    case NAL_UNIT_UNSPECIFIED_50:
+    case NAL_UNIT_UNSPECIFIED_51:
+    case NAL_UNIT_UNSPECIFIED_52:
+    case NAL_UNIT_UNSPECIFIED_53:
+    case NAL_UNIT_UNSPECIFIED_54:
+    case NAL_UNIT_UNSPECIFIED_55:
+      return true;
+  }
+
+  return false;
+}
+
+
+/**
+ * Writes the current access unit to the given bitstream and resets the current
+ *   access unit list
+ */
+Void TAppTraTop::xFlushAccessUnit(ostream& stream) {
+  writeAnnexB(stream, m_currentAccessUnit);
+
+  for (auto it = m_currentAccessUnit.begin(); it != m_currentAccessUnit.end(); it++) {
+    delete *it;
+  }
+
+  m_currentAccessUnit.clear();
 }
 
 

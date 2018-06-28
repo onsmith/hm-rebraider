@@ -1080,6 +1080,7 @@ Void TDecCavlc::parseSliceHeader (TComSlice* pcSlice, ParameterSetManager *param
       READ_FLAG( uiCode, "short_term_ref_pic_set_sps_flag" );
       if(uiCode == 0) // use short-term reference picture set explicitly signalled in slice header
       {
+        pcSlice->setRPSidx(-1);
         parseShortTermRefPicSet(sps,rps, sps->getRPSList()->getNumberOfReferencePictureSets());
       }
       else // use reference to short-term reference picture set in PPS

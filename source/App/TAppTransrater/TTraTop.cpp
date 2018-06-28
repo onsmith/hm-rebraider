@@ -69,6 +69,16 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   xEncodeSlice(encSlice, outputNalu.m_Bitstream);
 }
 
+/**
+ * Signal to the transcoder that the given picture has been fully transcoded
+ */
+Void TTraTop::finishPic(const TComPic& pic) {
+  TComPic* encPic = xGetEncPicByPoc(pic.getPOC());
+  if (encPic != nullptr) {
+    encPic->compressMotion();
+  }
+}
+
 
 /**
  * Encode a VPS and write to bitstream
@@ -136,7 +146,12 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   TEncSlice&   sliceEncoder   = *getSliceEncoder();
 
-  // Write slice head to output bitstream
+  // Set current slice
+  const UInt sliceIndex = slice.getSliceIdx();
+  sliceEncoder.setSliceIdx(sliceIndex);
+  pic.setCurrSliceIdx(sliceIndex);
+
+  // Write slice headW to output bitstream
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.resetEntropy(&slice);
   entropyEncoder.setBitstream(&bitstream);
@@ -147,21 +162,31 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   UInt numBinsCoded = 0;
   slice.setFinalized(true);
   slice.clearSubstreamSizes();
-  sliceEncoder.setSliceIdx(slice.getSliceIdx());
   sliceEncoder.encodeSlice(&pic, substreams.data(), numBinsCoded);
-  
+
   // Write WPP entry points to output bitstream
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.setBitstream(&bitstream);
   entropyEncoder.encodeTilesWPPEntryPoint(&slice);
 
-  // Concatenate substreams and append to the output bitstream
-  bitstream.writeByteAlignment();
+  // Concatenate substreams
+  TComOutputBitstream concatenatedStream;
   const Int numZeroSubstreamsAtStartOfSlice = pic.getSubstreamForCtuAddr(slice.getSliceSegmentCurStartCtuTsAddr(), false, &slice);
   const Int numSubstreamsToCode             = slice.getNumberOfSubstreamSizes() + 1;
   for (UInt substreamIndex = 0 ; substreamIndex < numSubstreamsToCode; substreamIndex++) {
-    bitstream.addSubstream(substreams.data() + substreamIndex + numZeroSubstreamsAtStartOfSlice);
+    TComOutputBitstream& substream =
+      *(substreams.data() + substreamIndex + numZeroSubstreamsAtStartOfSlice);
+    concatenatedStream.addSubstream(&substream);
+    substream.clear();
   }
+
+  // Append concatenated substream to the output bitstream
+  bitstream.writeByteAlignment();
+  if (concatenatedStream.getNumberOfWrittenBits() > 0) {
+    bitstream.addSubstream(&concatenatedStream);
+  }
+  entropyEncoder.setBitstream(&bitstream);
+  concatenatedStream.clear();
 }
 
 
@@ -207,6 +232,7 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
 
   // Copy basic slice data to destination slice
   dstSlice.copySliceInfo(&srcSlice);
+  dstSlice.setRPSidx(srcSlice.getRPSidx());
 
   // Copy decoded slice information
   {

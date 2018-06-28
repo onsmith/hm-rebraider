@@ -81,6 +81,9 @@ private:
   // Output stream for reconstructed source YUV frames
   TVideoIOYuv m_decodedYUVOutputStream;
 
+  // Holds transrated nal units for the current access unit
+  AccessUnit m_currentAccessUnit;
+
 
 public:
   // Default constructor
@@ -114,6 +117,18 @@ protected:
 
   // Opens an ofstream for writing the transrated hevc bitstream
   Void xOpenOutputStream(ofstream& stream) const;
+
+
+  /**
+   * Access Unit management
+   */
+
+  // Checks if the given nal unit signals the start of a new access unit
+  Bool xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const;
+
+  // Writes the current access unit to the given bitstream and resets the
+  //   current access unit list
+  Void xFlushAccessUnit(ostream& stream);
 
 
   /**
