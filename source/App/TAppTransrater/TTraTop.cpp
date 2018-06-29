@@ -28,7 +28,6 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded VPS NAL unit
  */
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
-  //m_vps = &vps;
   setVPS(&vps);
   xEncodeVPS(vps, outputNalu.m_Bitstream);
 }
@@ -38,7 +37,6 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded SPS NAL unit
  */
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
-  //*m_spsMap.allocatePS(sps.getSPSId()) = sps;
   *getSpsMap()->allocatePS(sps.getSPSId()) = sps;
   xEncodeSPS(sps, outputNalu.m_Bitstream);
 }
@@ -48,7 +46,6 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded PPS NAL unit
  */
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
-  //m_ppsMap.allocatePS(pps.getPPSId()) = pps;
   *getPpsMap()->allocatePS(pps.getPPSId()) = pps;
   xEncodePPS(pps, outputNalu.m_Bitstream);
 }
