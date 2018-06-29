@@ -77,9 +77,6 @@ public:
   // Transcode a decoded slice NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
 
-  // Signal to the transcoder that the given picture has been fully transcoded
-  Void finishPic(const TComPic& pic);
-
 
 protected:
  // Parameter set encode and write to bitstream

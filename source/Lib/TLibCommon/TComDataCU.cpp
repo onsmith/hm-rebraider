@@ -488,11 +488,14 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
 
   m_uiNumPartition    = rhs.m_uiNumPartition;
 
-  // TODO: This may leak state
-  /*for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
-    m_acCUMvField[i].destroy();
-    m_acCUMvField[i] = rhs.m_acCUMvField[i];
-  }*/
+  // TODO: Does this need null checks?
+  for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
+    const TComCUMvField& srcObj = rhs.m_acCUMvField[i];
+          TComCUMvField& dstObj =     m_acCUMvField[i];
+    dstObj.setNumPartition(srcObj.getNumPartition());
+    srcObj.copyTo(&dstObj, 0);
+    *dstObj.getAMVPInfo() = *srcObj.getAMVPInfo();
+  }
 
 
   /**

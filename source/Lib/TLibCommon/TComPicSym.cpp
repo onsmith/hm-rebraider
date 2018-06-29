@@ -617,4 +617,101 @@ Void getTilePosition(const TComDataCU* const pcCU, UInt &tileXPosInCtus, UInt &t
 
 #endif
 
+
+/**
+ * Copies the value of m_dpbPerCtuData from rhs
+ */
+Void TComPicSym::copyDPBPerCtuDataFrom(const TComPicSym& rhs) {
+  if (m_dpbPerCtuData != nullptr && rhs.m_dpbPerCtuData == nullptr) {
+    for (UInt i = 0; i < m_numCtusInFrame; i++) {
+      for (Int j = 0; j < NUM_REF_PIC_LIST_01; j++) {
+        m_dpbPerCtuData[i].m_CUMvField[j].destroy();
+      }
+      delete [] m_dpbPerCtuData[i].m_pePredMode;
+      delete [] m_dpbPerCtuData[i].m_pePartSize;
+    }
+    delete [] m_dpbPerCtuData;
+    m_dpbPerCtuData = nullptr;
+    return;
+  }
+
+  if (m_dpbPerCtuData == nullptr && rhs.m_dpbPerCtuData != nullptr) {
+    m_dpbPerCtuData = new DPBPerCtuData[m_numCtusInFrame];
+    for (UInt i = 0; i < m_numCtusInFrame; i++) {
+      for (Int j = 0; j < NUM_REF_PIC_LIST_01; j++) {
+        m_dpbPerCtuData[i].m_CUMvField[j].create(m_numPartitionsInCtu);
+      }
+      m_dpbPerCtuData[i].m_pePredMode = new SChar[m_numPartitionsInCtu];
+      m_dpbPerCtuData[i].m_pePartSize = new SChar[m_numPartitionsInCtu];
+    }
+  }
+
+  if (m_dpbPerCtuData != nullptr && rhs.m_dpbPerCtuData != nullptr) {
+    for (UInt iCtu = 0; iCtu < m_numCtusInFrame; iCtu++) {
+      const DPBPerCtuData& srcObj = rhs.m_dpbPerCtuData[iCtu];
+            DPBPerCtuData& dstObj =     m_dpbPerCtuData[iCtu];
+      for (Int iRefList = 0; iRefList < NUM_REF_PIC_LIST_01; iRefList++) {
+        srcObj.m_CUMvField[iRefList].copyTo(&dstObj.m_CUMvField[iRefList], 0);
+        *dstObj.m_CUMvField[iRefList].getAMVPInfo() = *srcObj.m_CUMvField[iRefList].getAMVPInfo();
+      }
+      memcpy(
+        dstObj.m_pePredMode,
+        srcObj.m_pePredMode,
+        m_numPartitionsInCtu * sizeof(SChar)
+      );
+      memcpy(
+        dstObj.m_pePartSize,
+        srcObj.m_pePartSize,
+        m_numPartitionsInCtu * sizeof(SChar)
+      );
+      if (srcObj.m_pSlice != nullptr) {
+        dstObj.m_pSlice = getSlice(srcObj.m_pSlice->getSliceIdx());
+      }
+    }
+  }
+}
+
+
+/**
+ * Static (local) template function to copy an array's contents using C++ style
+ *   allocation (new/delete)
+ */
+template<typename T>
+inline static Void copyArrNew(T* const & src, T*& dst, Bool isArrResized, UInt arrSize) {
+  if (dst != nullptr && (src == nullptr || isArrResized)) {
+    delete[] dst;
+    dst = nullptr;
+  }
+  if (src != nullptr) {
+    if (dst == nullptr) {
+      dst = new T[arrSize];
+    }
+    memcpy(dst, src, arrSize * sizeof(T));
+  }
+}
+
+
+/**
+ * Copies the value of m_saoBlkParams from rhs
+ */
+Void TComPicSym::copySAOBlkParamsFrom(const TComPicSym& rhs) {
+  copyArrNew(rhs.m_saoBlkParams, m_saoBlkParams, false, m_numCtusInFrame);
+}
+
+
+#if ADAPTIVE_QP_SELECTION
+/**
+ * Copies the value of m_pParentARLBuffer from rhs
+ */
+Void TComPicSym::copyParentARLBufferFrom(const TComPicSym& rhs) {
+  copyArrNew(
+    rhs.m_pParentARLBuffer,
+        m_pParentARLBuffer,
+    false,
+    m_sps.getMaxCUWidth() * m_sps.getMaxCUHeight() * MAX_NUM_COMPONENT
+  );
+}
+#endif
+
+
 //! \}

@@ -729,7 +729,6 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
       break;
 
     case NAL_UNIT_SUFFIX_SEI:
-      m_transcoder.finishPic(*m_decoder.getCurPic());
       m_transcoder.transcode(sourceNalu, encodedNalu);
       break;
 

@@ -69,16 +69,6 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   xEncodeSlice(encSlice, outputNalu.m_Bitstream);
 }
 
-/**
- * Signal to the transcoder that the given picture has been fully transcoded
- */
-Void TTraTop::finishPic(const TComPic& pic) {
-  TComPic* encPic = xGetEncPicByPoc(pic.getPOC());
-  if (encPic != nullptr) {
-    encPic->compressMotion();
-  }
-}
-
 
 /**
  * Encode a VPS and write to bitstream
@@ -101,6 +91,18 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.setBitstream(&bitstream);
   entropyEncoder.encodeSPS(&sps);
+
+  // TODO: If multiple SPS nal units are encountered in the source bitstream,
+  //   the slice encoder will be intialized again (possible activation issues?).
+  //   Is this a problem?
+  getSliceEncoder()->create(
+    sps.getPicWidthInLumaSamples(),
+    sps.getPicHeightInLumaSamples(),
+    sps.getChromaFormatIdc(),
+    sps.getMaxCUHeight(),
+    sps.getMaxCUWidth(),
+    sps.getMaxTotalCUDepth()
+  );
 }
 
 
@@ -138,27 +140,30 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   // The provided slice must have an associated TComPic
   TComPic& pic = *slice.getPic();
 
-  // Allocate temporary encoding substreams
-  std::vector<TComOutputBitstream> substreams(numEncSubstreams(slice));
-
   // Get encoder references
   TEncEntropy& entropyEncoder = *getEntropyCoder();
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   TEncSlice&   sliceEncoder   = *getSliceEncoder();
+
+  // Prepare pic to encode slice
+  pic.setTLayer(slice.getTLayer());
+
+  // Allocate temporary encoding substreams
+  std::vector<TComOutputBitstream> substreams(numEncSubstreams(slice));
 
   // Set current slice
   const UInt sliceIndex = slice.getSliceIdx();
   sliceEncoder.setSliceIdx(sliceIndex);
   pic.setCurrSliceIdx(sliceIndex);
 
-  // Write slice headW to output bitstream
+  // Write slice head to output bitstream
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.resetEntropy(&slice);
   entropyEncoder.setBitstream(&bitstream);
   slice.setEncCABACTableIdx(sliceEncoder.getEncCABACTableIdx());
   entropyEncoder.encodeSliceHeader(&slice);
 
-  // Encode slice body data to temporary substreams
+  // Encode slice to temporary substreams
   UInt numBinsCoded = 0;
   slice.setFinalized(true);
   slice.clearSubstreamSizes();
@@ -187,6 +192,11 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   }
   entropyEncoder.setBitstream(&bitstream);
   concatenatedStream.clear();
+
+  // Compress motion
+  if (slice.getSliceCurEndCtuTsAddr() == pic.getNumberOfCtusInFrame()) {
+    pic.compressMotion();
+  }
 }
 
 
@@ -329,7 +339,14 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   dstPic.setPicYuvOrg(nullptr);
   dstPic.setPicYuvTrueOrg(nullptr);
   dstPic.create(sps, pps, false, true);
-  
+
+  // Clear slice buffer
+  dstPic.clearSliceBuffer();
+
+  // Set prediction and residual planes
+  dstPic.setPicYuvPred(&getSliceEncoder()->getPicYuvPred());
+  dstPic.setPicYuvResi(&getSliceEncoder()->getPicYuvResi());
+
   // Copy relevant TComPic data
   dstPic.setTLayer(srcPic.getTLayer());
   dstPic.setUsedByCurr(srcPic.getUsedByCurr());
@@ -342,24 +359,30 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   dstPic.setField(srcPic.isField());
   // TODO: m_SEIs
 
-  // Copy relevant TComPicSym data
-  // TODO: m_dpbPerCtuData;
-  // TODO: m_saoBlkParams;
-
-#if ADAPTIVE_QP_SELECTION
-  // TODO: m_pParentARLBuffer;
-#endif
-
-  // Set up m_pictureCtuArray pointers
-  for (UInt ctuRsAddr = 0; ctuRsAddr < dstPic.getPicSym()->getNumberOfCtusInFrame(); ctuRsAddr++) {
-    dstPic.getCtu(ctuRsAddr)->attachToPic(dstPic, ctuRsAddr);
-  }
-
-  // Use decoded TComPicYuv plane as encoder source plane
+  // Source picture
   TComPicYuv* reconPlane = const_cast<TComPic&>(srcPic).getPicYuvRec();
   dstPic.setPicYuvOrg(reconPlane);
   dstPic.setPicYuvTrueOrg(reconPlane);
 
-  // Clear slice buffer
-  dstPic.clearSliceBuffer();
+  // Copy relevant TComPicSym data
+  {
+    const TComPicSym& srcSym = *srcPic.getPicSym();
+          TComPicSym& dstSym = *dstPic.getPicSym();
+
+    // m_dpbPerCtuData
+    dstSym.copyDPBPerCtuDataFrom(srcSym);
+
+    // m_saoBlkParams
+    dstSym.copySAOBlkParamsFrom(srcSym);
+
+#if ADAPTIVE_QP_SELECTION
+  // m_pParentARLBuffer
+    dstSym.copyParentARLBufferFrom(srcSym);
+#endif
+  }
+
+  // Make each TComDataCU in the slice aware of its position within the TComPic
+  for (UInt ctuRsAddr = 0; ctuRsAddr < dstPic.getPicSym()->getNumberOfCtusInFrame(); ctuRsAddr++) {
+    dstPic.getCtu(ctuRsAddr)->attachToPic(dstPic, ctuRsAddr);
+  }
 }

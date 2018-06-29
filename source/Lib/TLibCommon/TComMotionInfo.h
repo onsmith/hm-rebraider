@@ -131,8 +131,9 @@ public:
   TComMv const & getMv    ( Int iIdx ) const { return  m_pcMv    [iIdx]; }
   TComMv const & getMvd   ( Int iIdx ) const { return  m_pcMvd   [iIdx]; }
   Int            getRefIdx( Int iIdx ) const { return  m_piRefIdx[iIdx]; }
-
-  AMVPInfo* getAMVPInfo () { return &m_cAMVPInfo; }
+  
+        AMVPInfo* getAMVPInfo ()       { return &m_cAMVPInfo; }
+  const AMVPInfo* getAMVPInfo () const { return &m_cAMVPInfo; }
 
   // ------------------------------------------------------------------------------------------------------------------
   // set
@@ -142,6 +143,11 @@ public:
   Void    setAllMvd    ( TComMv const & rcMvd,        PartSize eCUMode, Int iPartAddr, UInt uiDepth, Int iPartIdx=0 );
   Void    setAllRefIdx ( Int iRefIdx,                 PartSize eMbMode, Int iPartAddr, UInt uiDepth, Int iPartIdx=0 );
   Void    setAllMvField( TComMvField const & mvField, PartSize eMbMode, Int iPartAddr, UInt uiDepth, Int iPartIdx=0 );
+
+  Int getNumPartition() const
+  {
+    return m_uiNumPartition;
+  }
 
   Void setNumPartition( Int iNumPart )
   {

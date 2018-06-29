@@ -188,6 +188,19 @@ public:
   Void               deriveLoopFilterBoundaryAvailibility(Int ctuRsAddr,
                                                           Bool& isLeftAvail, Bool& isRightAvail, Bool& isAboveAvail, Bool& isBelowAvail,
                                                           Bool& isAboveLeftAvail, Bool& isAboveRightAvail, Bool& isBelowLeftAvail, Bool& isBelowRightAvail);
+
+  // Copies the value of m_dpbPerCtuData from rhs
+  Void copyDPBPerCtuDataFrom(const TComPicSym& rhs);
+
+  // Copies the value of m_saoBlkParams from rhs
+  Void copySAOBlkParamsFrom(const TComPicSym& rhs);
+
+#if ADAPTIVE_QP_SELECTION
+  // Copies the value of m_pParentARLBuffer from rhs
+  Void copyParentARLBufferFrom(const TComPicSym& rhs);
+#endif
+
+
 protected:
   UInt               xCalculateNextCtuRSAddr( UInt uiCurrCtuRSAddr );
 

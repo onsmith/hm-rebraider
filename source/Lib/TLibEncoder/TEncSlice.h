@@ -133,6 +133,12 @@ public:
   Void    xDetermineStartAndBoundingCtuTsAddr  ( UInt& startCtuTsAddr, UInt& boundingCtuTsAddr, TComPic* pcPic );
   UInt    getSliceIdx()         { return m_uiSliceIdx;                    }
   Void    setSliceIdx(UInt i)   { m_uiSliceIdx = i;                       }
+  
+        TComPicYuv& getPicYuvPred()       { return m_picYuvPred; }
+  const TComPicYuv& getPicYuvPred() const { return m_picYuvPred; }
+
+        TComPicYuv& getPicYuvResi()       { return m_picYuvResi; }
+  const TComPicYuv& getPicYuvResi() const { return m_picYuvResi; }
 
   SliceType getEncCABACTableIdx() const           { return m_encCABACTableIdx;        }
 
