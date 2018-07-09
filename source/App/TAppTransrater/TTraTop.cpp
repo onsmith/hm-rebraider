@@ -102,6 +102,10 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
     sps.getMaxCUWidth(),
     sps.getMaxTotalCUDepth()
   );
+
+  // TODO: Same issue here with the cu buffers being initialized multiple times
+  //   and possibly causing problems
+  xMakeCuBuffers(sps);
 }
 
 
@@ -235,14 +239,16 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
   dstSlice = srcSlice;
   dstSlice.setPic(&dstPic);
   dstSlice.setRPS(srcSlice.getRPS());
+  dstSlice.applyReferencePictureSet(*getListPic(), dstSlice.getRPS());
 
   // Use encoder picture references instead of decoder references
   for (Int iList = 0; iList < NUM_REF_PIC_LIST_01; iList++) {
     for (Int iPic = 0; iPic < MAX_NUM_REF; iPic++) {
       RefPicList iRefPicList = static_cast<RefPicList>(iList);
-      TComPic* decRefPic = dstSlice.getRefPic(iRefPicList, iPic);
+      const TComPic* decRefPic = srcSlice.getRefPic(iRefPicList, iPic);
       if (decRefPic != nullptr) {
         TComPic* encRefPic = xGetEncPicByPoc(decRefPic->getPOC());
+        assert(encRefPic != nullptr); // ensure reference lists are synced
         dstSlice.setRefPic(encRefPic, iRefPicList, iPic);
       }
     }
@@ -314,6 +320,43 @@ TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
   }
 
   return nullptr;
+}
+
+
+/**
+ * Set up cu buffers
+ */
+Void TTraTop::xMakeCuBuffers(const TComSPS& sps) {
+  UInt maxDepth             = sps.getMaxTotalCUDepth();
+  UInt maxWidth             = sps.getMaxCUWidth();
+  UInt maxHeight            = sps.getMaxCUHeight();
+  ChromaFormat chromaFormat = sps.getChromaFormatIdc();
+  
+  m_originalBuffer.resize(maxDepth);
+  m_predictionBuffer.resize(maxDepth);
+  m_residualBuffer.resize(maxDepth);
+  m_reconstructionBuffer.resize(maxDepth);
+  m_cuBuffer.resize(maxDepth);
+
+  for (UInt d = 0; d < maxDepth; d++) {
+    UInt uiNumPartitions = 1 << ((maxDepth - d) << 1);
+    UInt uiWidth  = maxWidth  >> d;
+    UInt uiHeight = maxHeight >> d;
+    
+    m_originalBuffer[d].create(uiWidth, uiHeight, chromaFormat);
+    m_predictionBuffer[d].create(uiWidth, uiHeight, chromaFormat);
+    m_residualBuffer[d].create(uiWidth, uiHeight, chromaFormat);
+    m_reconstructionBuffer[d].create(uiWidth, uiHeight, chromaFormat);
+
+    m_cuBuffer[d].create(
+      chromaFormat,
+      uiNumPartitions,
+      uiWidth,
+      uiHeight,
+      true,
+      maxWidth >> maxDepth
+    );
+  }
 }
 
 
@@ -451,17 +494,18 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   }
 
   // Set up cu data structure for transcoding
-  TComDataCU& cu;
+  TComDataCU& cu = m_cuBuffer[cuDepth];
   cu.copySubCU(&ctu, cuPartAddr);
 
-  // Get prediction, residual, and reconstruction yuv buffers
-  TComYuv& predBuff;
-  TComYuv& resiBuff;
-  TComYuv& recoBuff;
+  // Get original, prediction, residual, and reconstruction yuv buffers
+  TComYuv& origBuff = m_originalBuffer[cuDepth];
+  TComYuv& predBuff = m_predictionBuffer[cuDepth];
+  TComYuv& resiBuff = m_residualBuffer[cuDepth];
+  TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
 
   // Requantize cu
   if (ctu.isInter(cuPartAddr)) {
-    xRequantizeInterCu(cu, predBuff, resiBuff, recoBuff);
+    xRequantizeInterCu(cu);
   } else if (ctu.isIntra(cuPartAddr)) {
     //xRequantizeIntraCu(cu, predBuff, resiBuff, recoBuff);
   } else {
@@ -475,28 +519,60 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
 /**
  * Requantizes an inter-predicted cu
  */
-Void TTraTop::xRequantizeInterCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff) {
-  // Apply motion vectors to obtain prediction
-  TComPrediction& predictor = *getPredSearch();
-  predictor.motionCompensation(&cu, &predBuff);
+Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
+  UInt cuDepth = cu.getDepth(0);
 
-  // Loop through components
-  TComTURecurse tu(&cu, 0, cu.getDepth(0));
-  for (UInt ch=0; ch < cu.getPic()->getNumberValidComponents(); ch++) {
-    const ComponentID compID = static_cast<ComponentID>(ch);
+  // Get original, prediction, residual, and reconstruction yuv buffers
+  TComYuv& origBuff = m_originalBuffer[cuDepth];
+  TComYuv& predBuff = m_predictionBuffer[cuDepth];
+  TComYuv& resiBuff = m_residualBuffer[cuDepth];
+  TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
+  
+  // Obtain original by copying yuv data from source picture
+  origBuff.copyFromPicYuv(
+    cu.getPic()->getPicYuvOrg(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
 
-    // Apply transform and quantization
-    xRequantizeInterTu();
+  // Obtain prediction by applying motion vectors
+  getPredSearch()->motionCompensation(&cu, &predBuff);
+
+  // Obtain prediction error by computing (original - prediction)
+  // Note: store in residual
+  resiBuff.subtract(&origBuff, &predBuff, 0, cu.getWidth(0));
+
+  // Obtain real residual by transforming and quantizing prediction error
+  TComTURecurse tu(&cu, 0, cuDepth);
+  for (UInt c = 0; c < cu.getPic()->getNumberValidComponents(); c++) {
+    xRequantizeInterTu(tu, static_cast<ComponentID>(c));
   }
+
+  // Obtain reconstructed signal by computing (prediction + residual)
+  recoBuff.addClip(
+    &predBuff,
+    &resiBuff,
+    0,
+    cu.getWidth(0),
+    cu.getSlice()->getSPS()->getBitDepths()
+  );
+
+  // Copy reconstructed signal back into picture
+  recoBuff.copyToPicYuv(
+    cu.getPic()->getPicYuvRec(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
 }
 
 
 /**
  * Recursively requantizes an inter-predicted tu
  */
-Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComYuv& resiBuff) {
+Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComTrQuant& transQuant = *getTrQuant();
   TComDataCU&  cu         = *tu.getCU();
+  TComYuv&     resiBuff   = m_originalBuffer[cu.getDepth(0)];
 
   if (!tu.ProcessComponentSection(component)) {
     return;
@@ -509,13 +585,16 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComY
     cu.getCbf(tuPartIndex, component, uiTrMode) == 0;
 
   Bool isCrossComponentPredictionEnabled =
-    cu
-      .getSlice()
+    cu.getSlice()
       ->getPPS()
       ->getPpsRangeExtension()
       .getCrossComponentPredictionEnabledFlag();
 
-  if (areAllCoefficientsZero && (isLuma(component) || !isCrossComponentPredictionEnabled)) {
+  Bool canSkipTransQuant =
+    areAllCoefficientsZero &&
+    (isLuma(component) || !isCrossComponentPredictionEnabled);
+
+  if (canSkipTransQuant) {
     return;
   }
 
@@ -523,7 +602,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComY
   if (uiTrMode != cu.getTransformIdx(tuPartIndex)) {
     TComTURecurse tuChild(tu, false);
     do {
-      xRequantizeInterTu(tuChild, component, resiBuff);
+      xRequantizeInterTu(tuChild, component);
     } while (tuChild.nextSection(tu));
     return;
   }
@@ -531,7 +610,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComY
   const TComRectangle& tuRect      = tu.getRect(component);
   const Int            uiStride    = resiBuff.getStride(component);
         Pel*           rpcResidual = resiBuff.getAddr(component);
-        UInt           uiAddr      = (tuRect.x0 + uiStride*tuRect.y0);
+        UInt           uiAddr      = tuRect.x0 + uiStride * tuRect.y0;
         Pel*           pResi       = rpcResidual + uiAddr;
         TCoeff*        pcCoeff     = cu.getCoeff(component) + tu.getCoefficientOffset(component);
 
@@ -548,7 +627,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComY
       uiStride,
       pcCoeff,
 #if ADAPTIVE_QP_SELECTION
-      pcArlCoeff,
+      nullptr, //pcArlCoeff,
 #endif
       absSum,
       qp
@@ -606,7 +685,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComY
 
 /**
  * Requantizes an intra-predicted cu
- */
+ *
 Void TTraTop::xRequantizeIntraCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff) {
   if (cu.getIPCMFlag(0)) {
     assert(0);
@@ -641,10 +720,11 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& res
 
 
 /**
- * Constructs the intra prediction signal for a given tu
- */
-Void TTraTop::xPredictIntraTu(TComTURecurse& tu, TComYuv& predictionBuffer, ChannelType channelType) {
+ * Recursively requantizes an intra-predicted tu
+ *
+Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType, TComYuv& predBuff) {
         TComPrediction& predictor = *getPredSearch();
+        TComDataCU&     cu        = *tu.getCU();
   const TComSPS&        sps       = *cu.getSlice()->getSPS();
 
   const UInt uiChPredMode  = cu.getIntraDir(toChannelType(compID), uiAbsPartIdx);
@@ -658,3 +738,4 @@ Void TTraTop::xPredictIntraTu(TComTURecurse& tu, TComYuv& predictionBuffer, Chan
 
   predictor.predIntraAng(compID, uiChFinalMode, nullptr, 0, piPred, uiStride, rTu, bUseFilteredPredictions);
 }
+*/

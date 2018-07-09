@@ -50,12 +50,24 @@
 #include "TLibEncoder/NALwrite.h"
 #include "TLibEncoder/TEncTop.h"
 
+#include <vector>
+
 
 //! \ingroup TAppTransrater
 //! \{
 
 
 class TTraTop : public TEncTop {
+protected:
+  // Buffer of cu data structures to be reused during ctu recursion
+  std::vector<TComDataCU> m_cuBuffer;
+  
+  // Original, prediction, residual, and reconstruction buffers
+  std::vector<TComYuv> m_originalBuffer;
+  std::vector<TComYuv> m_predictionBuffer;
+  std::vector<TComYuv> m_residualBuffer;
+  std::vector<TComYuv> m_reconstructionBuffer;
+
 public:
   // Default constructor
   TTraTop();
@@ -89,6 +101,14 @@ protected:
   // Set up an encoder TComPic by copying relevant configuration from a
   //   corresponding decoded TComPic
   Void xCopyDecPic(const TComPic& srcPic, TComPic& dstPic);
+
+
+  /**
+   * CU buffer managmenet
+   */
+  // Set up cu buffers
+  Void xMakeCuBuffers(const TComSPS& sps);
+
 
 
   /**
@@ -127,19 +147,23 @@ protected:
 
 
   /**
-   * Prediction
+   * Inter-predicted requantization
    */
   // Requantizes an inter-predicted cu
-  Void xRequantizeInterCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff);
+  Void xRequantizeInterCu(TComDataCU& cu);
   
   // Recursively requantizes an inter-predicted tu
-  Void xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComYuv& resiBuff);
+  Void xRequantizeInterTu(TComTURecurse& tu, ComponentID component);
 
+
+  /**
+   * Intra-predicted requantization
+   *
   // Requantizes an intra-predicted cu
   Void xRequantizeIntraCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff);
-
-  //
-  Void xPredictIntraTu(TComTURecurse& tu, TComYuv& predictionBuffer, ChannelType channelType);
+  
+  // Recursively requantizes an intra-predicted tu
+  Void xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType, TComYuv& predBuff);*/
 };
 
 
