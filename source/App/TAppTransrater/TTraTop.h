@@ -43,6 +43,7 @@
 
 
 #include "TLibCommon/TComSlice.h"
+#include "TLibCommon/TComTU.h"
 
 #include "TLibDecoder/NALread.h"
 
@@ -79,20 +80,20 @@ public:
 
 
 protected:
- // Parameter set encode and write to bitstream
-  Void xEncodeVPS(const TComVPS& vps, TComOutputBitstream& bitstream); // video parameter set encoding
-  Void xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream); // sequence parameter set encoding
-  Void xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream); // picture parameter set encoding
-
-  // Encode slice and write to bitstream
-  Void xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream);
-
+  /**
+   * Encoder/decoder synchronization
+   */
   // Copy a TComSlice to a TComPic, returning a reference to the new TComSlice
   TComSlice& xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic);
+  
+  // Set up an encoder TComPic by copying relevant configuration from a
+  //   corresponding decoded TComPic
+  Void xCopyDecPic(const TComPic& srcPic, TComPic& dstPic);
 
-  // Compress a decoded slice by choosing compression parameters
-  Void xCompressSlice(TComSlice& slice);
 
+  /**
+   * Picture buffer management
+   */
   // Resolve a TComSlice into its corresponding encoder TComPic
   TComPic& xGetEncPicBySlice(const TComSlice& slice);
 
@@ -101,10 +102,44 @@ protected:
   
   // Get an unused entry from the picture buffer
   TComPic*& xGetUnusedEntry();
+
+
+  /**
+   * Entropy coding
+   */
+ // Parameter set encode and write to bitstream
+  Void xEncodeVPS(const TComVPS& vps, TComOutputBitstream& bitstream); // video parameter set encoding
+  Void xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream); // sequence parameter set encoding
+  Void xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream); // picture parameter set encoding
+
+  // Encode slice and write to bitstream
+  Void xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream);
+
+
+  /**
+   * Requantization
+   */
+  // Requantize a given slice by altering residual qp
+  Void xRequantizeSlice(TComSlice& slice);
+
+  // Recursively requantize a ctu by altering residual qp
+  Void xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr = 0, UInt cuDepth = 0);
+
+
+  /**
+   * Prediction
+   */
+  // Requantizes an inter-predicted cu
+  Void xRequantizeInterCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff);
   
-  // Set up an encoder TComPic by copying relevant configuration from a
-  //   corresponding decoded TComPic
-  Void xCopyDecPic(const TComPic& srcPic, TComPic& dstPic);
+  // Recursively requantizes an inter-predicted tu
+  Void xRequantizeInterTu(TComTURecurse& tu, ComponentID component, TComYuv& resiBuff);
+
+  // Requantizes an intra-predicted cu
+  Void xRequantizeIntraCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff);
+
+  //
+  Void xPredictIntraTu(TComTURecurse& tu, TComYuv& predictionBuffer, ChannelType channelType);
 };
 
 
