@@ -55,10 +55,13 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
  * Transcode a decoded slice NAL unit
  */
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
-  TComPic&   encPic   = xGetEncPicBySlice(slice);
+  // Find or create an encoder picture for the current slice
+  TComPic& encPic = xGetEncPicBySlice(slice);
+
+  // Copy the decoded slice to encoder
   TComSlice& encSlice = xCopySliceToPic(slice, encPic);
 
-  // Set the current slice
+  // Set the current encoder slice
   encPic.setCurrSliceIdx(encPic.getNumAllocatedSlice() - 1);
 
   // Requantize the slice to achieve a target rate
@@ -92,8 +95,8 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
   entropyEncoder.encodeSPS(&sps);
 
   // TODO: If multiple SPS nal units are encountered in the source bitstream,
-  //   the slice encoder will be intialized again (possible activation issues?).
-  //   Is this a problem?
+  //   the slice encoder will be intialized again (possible activation
+  //   issues?). Is this a problem?
   getSliceEncoder()->create(
     sps.getPicWidthInLumaSamples(),
     sps.getPicHeightInLumaSamples(),
@@ -106,6 +109,15 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
   // TODO: Same issue here with the cu buffers being initialized multiple times
   //   and possibly causing problems
   xMakeCuBuffers(sps);
+
+  // TODO: Same issue with creating loop filter
+  getLoopFilter()->create(sps.getMaxTotalCUDepth());
+
+  // TODO: And with prediction search
+  getPredSearch()->initTempBuff(sps.getChromaFormatIdc());
+
+  // TODO: And transquant
+  getTrQuant()->init(sps.getMaxTrSize());
 }
 
 
@@ -118,6 +130,19 @@ Void TTraTop::xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream) {
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
   entropyEncoder.setBitstream(&bitstream);
   entropyEncoder.encodePPS(&pps);
+
+  // Initialize the sao filter for this pps
+  TComSPS& sps = *getSpsMap()->getPS(pps.getSPSId());
+  getSAO()->create(
+    sps.getPicWidthInLumaSamples(),
+    sps.getPicHeightInLumaSamples(),
+    sps.getChromaFormatIdc(),
+    sps.getMaxCUWidth(),
+    sps.getMaxCUHeight(),
+    sps.getMaxTotalCUDepth(),
+    pps.getPpsRangeExtension().getLog2SaoOffsetScale(CHANNEL_TYPE_LUMA),
+    pps.getPpsRangeExtension().getLog2SaoOffsetScale(CHANNEL_TYPE_CHROMA)
+  );
 }
 
 
@@ -196,10 +221,42 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   entropyEncoder.setBitstream(&bitstream);
   concatenatedStream.clear();
 
-  // Compress motion
+  // Apply filters, compress motion
   if (slice.getSliceCurEndCtuTsAddr() == pic.getNumberOfCtusInFrame()) {
-    pic.compressMotion();
+    xFinishPicture(pic);
   }
+}
+
+
+/**
+ * Apply filters and compress motion for a reconstructed picture
+ */
+Void TTraTop::xFinishPicture(TComPic& pic) {
+  // Get pps, sps
+  const TComPPS& pps = pic.getPicSym()->getPPS();
+  const TComSPS& sps = pic.getPicSym()->getSPS();
+
+  // Apply deblocking filter
+  TComLoopFilter& loopFilterProcessor = *getLoopFilter();
+  Bool shouldDeblockOverTiles = pps.getLoopFilterAcrossTilesEnabledFlag();
+  loopFilterProcessor.setCfg(shouldDeblockOverTiles);
+  loopFilterProcessor.loopFilterPic(&pic);
+
+  // Apply sao filter
+  if (sps.getUseSAO()) {
+    TComSampleAdaptiveOffset& saoProcessor = *getSAO();
+    SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
+    //saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
+    saoProcessor.SAOProcess(&pic);
+    saoProcessor.PCMLFDisableProcess(&pic);
+  }
+
+  // Compress motion
+  pic.compressMotion();
+
+  // Mark for output
+  pic.setOutputMark(pic.getSlice(0)->getPicOutputFlag());
+  pic.setReconMark(true);
 }
 
 
@@ -250,6 +307,9 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
       const TComPic* decRefPic = srcSlice.getRefPic(iRefPicList, iPic);
       if (decRefPic != nullptr) {
         TComPic* encRefPic = xGetEncPicByPoc(decRefPic->getPOC());
+        if (encRefPic == nullptr) {
+          m_aidQP = 0;
+        }
         assert(encRefPic != nullptr); // ensure reference lists are synced
         dstSlice.setRefPic(encRefPic, iRefPicList, iPic);
       }
@@ -262,8 +322,9 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
     const UInt     startCtuTsAddr = srcSlice.getSliceSegmentCurStartCtuTsAddr();
     const UInt     endCtuTsAddr   = srcSlice.getSliceSegmentCurEndCtuTsAddr();
     for (UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < endCtuTsAddr; ctuTsAddr++) {
-      const UInt        ctuRsAddr = srcPic.getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
-      const TComDataCU& srcCtu    = *srcPic.getPicSym()->getCtu(ctuRsAddr);
+      const TComPicSym& srcPicSym = *srcPic.getPicSym();
+      const UInt        ctuRsAddr = srcPicSym.getCtuTsToRsAddrMap(ctuTsAddr);
+      const TComDataCU& srcCtu    = *srcPicSym.getCtu(ctuRsAddr);
             TComDataCU& dstCtu    = *dstPic.getPicSym()->getCtu(ctuRsAddr);
       dstCtu = srcCtu;
       dstCtu.setSlice(&dstSlice);
@@ -284,17 +345,19 @@ TComPic*& TTraTop::xGetUnusedEntry() {
   for (auto it = cpb.begin(); it != cpb.end(); it++) {
     TComPic*& pPic = *it;
 
+    if (pPic != nullptr && pPic->getOutputMark() && !(pPic->getReconMark() && pPic->getSlice(0)->isReferenced())) {
+      pPic->setReconMark(false);
+      pPic->getPicYuvRec()->setBorderExtension(false);
+      return pPic;
+    }
+
+
     if (pPic != nullptr && !pPic->getOutputMark()) {
-      // Bypass dpb management, just reuse picture
-      if (!pPic->getReconMark() || !pPic->getSlice(0)->isReferenced()) {
+      if (!pPic->getReconMark()) {
         return pPic;
       }
 
-      if (!pPic->getReconMark()) {
-        return pPic;
-
-      // TODO: Is this necessary?
-      } else if (!pPic->getSlice(0)->isReferenced()) {
+      if (!pPic->getSlice(0)->isReferenced()) {
         pPic->setReconMark(false);
         pPic->getPicYuvRec()->setBorderExtension(false);
         return pPic;
@@ -511,12 +574,10 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   if (ctu.isInter(cuPartAddr)) {
     xRequantizeInterCu(cu);
   } else if (ctu.isIntra(cuPartAddr)) {
-    //xRequantizeIntraCu(cu, predBuff, resiBuff, recoBuff);
+    //xRequantizeIntraCu(cu);
   } else {
     assert(0);
   }
-
-  // Copy reconstructed pixels back to reference picture
 }
 
 
@@ -631,7 +692,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       uiStride,
       pcCoeff,
 #if ADAPTIVE_QP_SELECTION
-      nullptr, //pcArlCoeff,
+      cu.getArlCoeff(component),
 #endif
       absSum,
       qp

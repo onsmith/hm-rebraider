@@ -124,6 +124,9 @@ protected:
   // Get an unused entry from the picture buffer
   TComPic*& xGetUnusedEntry();
 
+  // Apply filters and compress motion for a reconstructed picture
+  Void xFinishPicture(TComPic& pic);
+
 
   /**
    * Entropy coding

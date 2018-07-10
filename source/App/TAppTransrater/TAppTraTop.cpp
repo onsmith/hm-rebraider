@@ -167,7 +167,9 @@ Void TAppTraTop::transrate() {
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
-        xEncodeUnit(nalu, reencodedNalu);
+        if (!wasNewPictureFound) {
+          xEncodeUnit(nalu, reencodedNalu);
+        }
       } else {
         m_transcoder.transcode(nalu, reencodedNalu);
       }
@@ -178,7 +180,6 @@ Void TAppTraTop::transrate() {
         
         // TODO: Technically, it's probably better to wait for a new access unit
         //   signal before flushing the access unit, but for now we will flush
-
         xFlushAccessUnit(outputStream);
 
         // Flush access unit
@@ -188,7 +189,7 @@ Void TAppTraTop::transrate() {
       }
     }
 
-    // If a new picture was found in the current NAL unit, adjust the input
+    // If a new picture was found in the current NAL unit, rewind the input
     //   bitstream file cursor
     if (wasNewPictureFound) {
       inputStream.clear();
