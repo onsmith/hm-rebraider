@@ -239,7 +239,9 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
   dstSlice = srcSlice;
   dstSlice.setPic(&dstPic);
   dstSlice.setRPS(srcSlice.getRPS());
-  dstSlice.applyReferencePictureSet(*getListPic(), dstSlice.getRPS());
+  if (dstPic.getCurrSliceIdx() == 0) {
+    dstSlice.applyReferencePictureSet(*getListPic(), dstSlice.getRPS());
+  }
 
   // Use encoder picture references instead of decoder references
   for (Int iList = 0; iList < NUM_REF_PIC_LIST_01; iList++) {
