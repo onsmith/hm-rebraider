@@ -68,6 +68,7 @@ protected:
   std::vector<TComYuv> m_residualBuffer;
   std::vector<TComYuv> m_reconstructionBuffer;
 
+
 public:
   // Default constructor
   TTraTop();
@@ -106,7 +107,7 @@ protected:
   /**
    * CU buffer managmenet
    */
-  // Set up cu buffers
+  // Set up cu buffers for every cu depth possible
   Void xMakeCuBuffers(const TComSPS& sps);
 
 

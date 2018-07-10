@@ -324,14 +324,16 @@ TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
 
 
 /**
- * Set up cu buffers
+ * Set up cu buffers for every cu depth possible
  */
 Void TTraTop::xMakeCuBuffers(const TComSPS& sps) {
   UInt maxDepth             = sps.getMaxTotalCUDepth();
   UInt maxWidth             = sps.getMaxCUWidth();
   UInt maxHeight            = sps.getMaxCUHeight();
   ChromaFormat chromaFormat = sps.getChromaFormatIdc();
-  
+
+  // TODO: The following resize operation may leak memory if the stored
+  //   objects are not destructor-safe
   m_originalBuffer.resize(maxDepth);
   m_predictionBuffer.resize(maxDepth);
   m_residualBuffer.resize(maxDepth);
