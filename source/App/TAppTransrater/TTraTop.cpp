@@ -112,6 +112,12 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
 
   // TODO: Same issue with creating loop filter
   getLoopFilter()->create(sps.getMaxTotalCUDepth());
+
+  // TODO: And with prediction search
+  getPredSearch()->initTempBuff(sps.getChromaFormatIdc());
+
+  // TODO: And transquant
+  getTrQuant()->init(sps.getMaxTrSize());
 }
 
 
@@ -240,7 +246,7 @@ Void TTraTop::xFinishPicture(TComPic& pic) {
   if (sps.getUseSAO()) {
     TComSampleAdaptiveOffset& saoProcessor = *getSAO();
     SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
-    saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
+    //saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
     saoProcessor.SAOProcess(&pic);
     saoProcessor.PCMLFDisableProcess(&pic);
   }
@@ -299,6 +305,9 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
       const TComPic* decRefPic = srcSlice.getRefPic(iRefPicList, iPic);
       if (decRefPic != nullptr) {
         TComPic* encRefPic = xGetEncPicByPoc(decRefPic->getPOC());
+        if (encRefPic == nullptr) {
+          m_aidQP = 0;
+        }
         assert(encRefPic != nullptr); // ensure reference lists are synced
         dstSlice.setRefPic(encRefPic, iRefPicList, iPic);
       }
@@ -333,6 +342,13 @@ TComPic*& TTraTop::xGetUnusedEntry() {
   // Linearly search the buffer for an existing unused entry
   for (auto it = cpb.begin(); it != cpb.end(); it++) {
     TComPic*& pPic = *it;
+
+    if (pPic != nullptr && pPic->getOutputMark() && !(pPic->getReconMark() && pPic->getSlice(0)->isReferenced())) {
+      pPic->setReconMark(false);
+      pPic->getPicYuvRec()->setBorderExtension(false);
+      return pPic;
+    }
+
 
     if (pPic != nullptr && !pPic->getOutputMark()) {
       if (!pPic->getReconMark()) {
@@ -556,12 +572,10 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   if (ctu.isInter(cuPartAddr)) {
     xRequantizeInterCu(cu);
   } else if (ctu.isIntra(cuPartAddr)) {
-    //xRequantizeIntraCu(cu, predBuff, resiBuff, recoBuff);
+    //xRequantizeIntraCu(cu);
   } else {
     assert(0);
   }
-
-  // Copy reconstructed pixels back to reference picture
 }
 
 
@@ -676,7 +690,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       uiStride,
       pcCoeff,
 #if ADAPTIVE_QP_SELECTION
-      nullptr, //pcArlCoeff,
+      cu.getArlCoeff(component),
 #endif
       absSum,
       qp
