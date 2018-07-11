@@ -90,7 +90,7 @@ Void TAppTraTop::transrate() {
   Int poc;
 
   // Pointer to decoded picture buffer
-  TComList<TComPic*>* dpb = NULL;
+  TComList<TComPic*>* dpb = nullptr;
 
   // Open input h265 bitstream for reading source video
   ifstream inputStream;
@@ -130,6 +130,23 @@ Void TAppTraTop::transrate() {
 #else
     const streampos initialPositionInInputBitstream = inputStream.tellg();
 #endif
+
+    // Check picture buffers
+    auto epb = m_transcoder.getListPic();
+    if (dpb != nullptr && epb != nullptr) {
+      for (auto decIt = dpb->begin(); decIt != dpb->end(); decIt++) {
+        TComPic* decPic = *decIt;
+        if (decPic != nullptr) {
+          Int decPoc = decPic->getPOC();
+          Bool match = false;
+          for (auto encIt = epb->begin(); !match && encIt != epb->end(); encIt++) {
+            TComPic* encPic = *encIt;
+            match = (encPic != nullptr && encPic->getPOC() == decPoc);
+          }
+          assert(match);
+        }
+      }
+    }
 
     // Read one NAL unit from input bitstream
     InputNALUnit nalu;
