@@ -247,8 +247,8 @@ Void TTraTop::xFinishPicture(TComPic& pic) {
     TComSampleAdaptiveOffset& saoProcessor = *getSAO();
     SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
     //saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
-    saoProcessor.SAOProcess(&pic);
-    saoProcessor.PCMLFDisableProcess(&pic);
+    //saoProcessor.SAOProcess(&pic);
+    //saoProcessor.PCMLFDisableProcess(&pic);
   }
 
   // Compress motion
@@ -307,9 +307,6 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
       const TComPic* decRefPic = srcSlice.getRefPic(iRefPicList, iPic);
       if (decRefPic != nullptr) {
         TComPic* encRefPic = xGetEncPicByPoc(decRefPic->getPOC());
-        if (encRefPic == nullptr) {
-          m_aidQP = 0;
-        }
         assert(encRefPic != nullptr); // ensure reference lists are synced
         dstSlice.setRefPic(encRefPic, iRefPicList, iPic);
       }
