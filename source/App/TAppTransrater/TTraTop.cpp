@@ -338,6 +338,9 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
 TComPic*& TTraTop::xGetUnusedEntry() {
   TComList<TComPic*>& cpb = *getListPic();
 
+  // Sort the buffer
+  TComSlice::sortPicList(cpb);
+
   // Linearly search the buffer for an existing unused entry
   for (auto it = cpb.begin(); it != cpb.end(); it++) {
     TComPic*& pPic = *it;
