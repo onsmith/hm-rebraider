@@ -162,12 +162,20 @@ protected:
 
   /**
    * Intra-predicted requantization
-   *
+   */
   // Requantizes an intra-predicted cu
-  Void xRequantizeIntraCu(TComDataCU& cu, TComYuv& predBuff, TComYuv& resiBuff, TComYuv& recoBuff);
+  Void xRequantizeIntraCu(TComDataCU& cu);
   
   // Recursively requantizes an intra-predicted tu
-  Void xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType, TComYuv& predBuff);*/
+  //Void xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType, TComYuv& predBuff);
+
+
+  /**
+   * CU copying
+   */
+  // Copies pixels corresponding to a given cu directly from one TComPicYuv to
+  //   another
+Void xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst);
 };
 
 

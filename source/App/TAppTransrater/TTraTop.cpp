@@ -499,6 +499,7 @@ Void TTraTop::xRequantizeSlice(TComSlice& slice) {
  * Recursively compress a ctu by altering residual qp
  */
 Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
+        TComPic& pic = *ctu.getPic();
   const TComSPS& sps = *ctu.getSlice()->getSPS();
 
   UInt cuLeftBoundary = ctu.getCUPelX() +
@@ -545,12 +546,6 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
     return;
   }
 
-
-  // If the current cu is skipped or lossless encoded, we can't requantize
-  if (ctu.isSkipped(cuPartAddr) || ctu.isLosslessCoded(cuPartAddr)) {
-    return;
-  }
-
   // Set up cu data structure for transcoding
   TComDataCU& cu = m_cuBuffer[cuDepth];
   cu.copySubCU(&ctu, cuPartAddr);
@@ -561,11 +556,18 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   TComYuv& resiBuff = m_residualBuffer[cuDepth];
   TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
 
+  // If the current cu is skipped or lossless encoded, we can't requantize
+  if (cu.isSkipped(0) || cu.isLosslessCoded(0)) {
+    xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
+    return;
+  }
+
   // Requantize cu
-  if (ctu.isInter(cuPartAddr)) {
+  if (cu.isInter(0)) {
     xRequantizeInterCu(cu);
-  } else if (ctu.isIntra(cuPartAddr)) {
+  } else if (cu.isIntra(0)) {
     //xRequantizeIntraCu(cu);
+    xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
   } else {
     assert(0);
   }
@@ -576,8 +578,9 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
  * Requantizes an inter-predicted cu
  */
 Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
-  UInt cuDepth = cu.getDepth(0);
-  UInt cuWidth = cu.getWidth(0);
+  TComPic& pic     = *cu.getPic();
+  UInt     cuDepth = cu.getDepth(0);
+  UInt     cuWidth = cu.getWidth(0);
 
   // Get original, prediction, residual, and reconstruction yuv buffers
   TComYuv& origBuff = m_originalBuffer[cuDepth];
@@ -587,7 +590,7 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   
   // Obtain original by copying yuv data from source picture
   origBuff.copyFromPicYuv(
-    cu.getPic()->getPicYuvOrg(),
+    pic.getPicYuvOrg(),
     cu.getCtuRsAddr(),
     cu.getZorderIdxInCtu()
   );
@@ -601,7 +604,7 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 
   // Obtain real residual by transforming and quantizing prediction error
   TComTURecurse tu(&cu, 0, cuDepth);
-  for (UInt c = 0; c < cu.getPic()->getNumberValidComponents(); c++) {
+  for (UInt c = 0; c < pic.getNumberValidComponents(); c++) {
     xRequantizeInterTu(tu, static_cast<ComponentID>(c));
   }
 
@@ -616,10 +619,22 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 
   // Copy reconstructed signal back into picture
   recoBuff.copyToPicYuv(
-    cu.getPic()->getPicYuvRec(),
+    pic.getPicYuvRec(),
     cu.getCtuRsAddr(),
     cu.getZorderIdxInCtu()
   );
+}
+
+
+template<typename T>
+static Void printMat(const T* pCoeff, UInt width, UInt height) {
+  for (int h = 0; h < height; h++) {
+    for (int w = 0; w < width; w++) {
+      std::cout << pCoeff[w] << " ";
+    }
+    std::cout << std::endl;
+    pCoeff += width;
+  }
 }
 
 
@@ -629,8 +644,8 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComTrQuant& transQuant = *getTrQuant();
   TComDataCU&  cu         = *tu.getCU();
-  UChar        depth      = cu.getDepth(0);
-  TComYuv&     resiBuff   = m_residualBuffer[depth];
+  UChar        cuDepth    = cu.getDepth(0);
+  TComYuv&     resiBuff   = m_residualBuffer[cuDepth];
 
   if (!tu.ProcessComponentSection(component)) {
     return;
@@ -675,6 +690,13 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   if (!areAllCoefficientsZero) {
     const QpParam qp(cu, component);
 
+    // DEBUG: Copy initial coefficients
+    UInt numCoeffs =
+      (tu.getRect(component).width * tu.getRect(component).height) >>
+      (isChroma(component) ? 2 : 0);
+    TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
+    memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
+
     // Transform and quantize
     TCoeff absSum = 0;
     transQuant.transformNxN(
@@ -689,6 +711,36 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       absSum,
       qp
     );
+
+    // DEBUG: Compare coefficients and output to stdout if different
+    Bool areCoeffsSame = true;
+    for (int i = 0; i < numCoeffs; i++) {
+      if (beforeCoeffs[i] != pCoeff[i]) {
+        areCoeffsSame = false;
+        break;
+      }
+    }
+    if (!areCoeffsSame) {
+      std::cout << "Before:\n";
+      printMat(
+        beforeCoeffs,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+
+      std::cout << "After:\n";
+      printMat(
+        pCoeff,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+      std::getchar();
+    } else {
+      std::cout << "Coeffs match!\n";
+    }
+    delete[] beforeCoeffs;
 
     // Inverse transform and quantize
     transQuant.invTransformNxN(
@@ -732,6 +784,53 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       true           // const Bool          reverse
     );
   }
+}
+
+
+/**
+ * Copies pixels corresponding to a given cu directly from one TComPicYuv to
+ *   another
+ */
+Void TTraTop::xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst) {
+  // Uses the origBuff cu buffer to copy pixels
+  TComYuv& origBuff = m_originalBuffer[cu.getDepth(0)];
+
+  UInt ctuRasterAddress = cu.getCtuRsAddr();
+  UInt cuZOrderAddress  = cu.getZorderIdxInCtu();
+
+  // Obtain source cu pixel values by copying yuv data from source picture
+  origBuff.copyFromPicYuv(&src, ctuRasterAddress, cuZOrderAddress);
+
+  // Copy these pixels directly back into the reconstructed picture
+  origBuff.copyToPicYuv(&dst, ctuRasterAddress, cuZOrderAddress);
+}
+
+
+/**
+ * Requantizes an intra-predicted cu
+ */
+Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
+  UChar depth = cu.getDepth(0);
+
+  // Get original, prediction, residual, and reconstruction yuv buffers
+  TComYuv& origBuff = m_originalBuffer[depth];
+  //TComYuv& resiBuff = m_residualBuffer[depth];
+  //TComYuv& recoBuff = m_reconstructionBuffer[depth];
+
+  // Obtain original by copying yuv data from source picture
+  origBuff.copyFromPicYuv(
+    cu.getPic()->getPicYuvOrg(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
+
+  // Copy "reconstructed" signal (which is actually just a copy of the source
+  //   signal) back into picture
+  origBuff.copyToPicYuv(
+    cu.getPic()->getPicYuvRec(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
 }
 
 
