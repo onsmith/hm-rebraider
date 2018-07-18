@@ -247,15 +247,15 @@ Void TTraTop::xFinishPicture(TComPic& pic) {
     TComSampleAdaptiveOffset& saoProcessor = *getSAO();
     SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
     //saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
-    //saoProcessor.SAOProcess(&pic);
-    //saoProcessor.PCMLFDisableProcess(&pic);
+    saoProcessor.SAOProcess(&pic);
+    saoProcessor.PCMLFDisableProcess(&pic);
   }
 
   // Compress motion
   pic.compressMotion();
 
-  // Mark for output
-  pic.setOutputMark(pic.getSlice(0)->getPicOutputFlag());
+  // Mark the picture as fully reconstructed
+  //pic.setOutputMark(pic.getSlice(0)->getPicOutputFlag());
   pic.setReconMark(true);
 }
 
@@ -345,27 +345,18 @@ TComPic*& TTraTop::xGetUnusedEntry() {
   for (auto it = cpb.begin(); it != cpb.end(); it++) {
     TComPic*& pPic = *it;
 
-    if (pPic != nullptr && pPic->getOutputMark() && !(pPic->getReconMark() && pPic->getSlice(0)->isReferenced())) {
+    Bool isUnusedEntry = 
+      pPic != nullptr &&
+      (!pPic->getReconMark() || !pPic->getSlice(0)->isReferenced());
+
+    if (isUnusedEntry) {
       pPic->setReconMark(false);
       pPic->getPicYuvRec()->setBorderExtension(false);
       return pPic;
     }
-
-
-    if (pPic != nullptr && !pPic->getOutputMark()) {
-      if (!pPic->getReconMark()) {
-        return pPic;
-      }
-
-      if (!pPic->getSlice(0)->isReferenced()) {
-        pPic->setReconMark(false);
-        pPic->getPicYuvRec()->setBorderExtension(false);
-        return pPic;
-      }
-    }
   }
 
-  // All entries are used, so make a new entry at the back of the list
+  // All entries are used, so make a new entry at the end of the list
   cpb.push_back(nullptr);
   return cpb.back();
 }
@@ -389,7 +380,7 @@ TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
 
 
 /**
- * Set up cu buffers for every cu depth possible
+ * Set up memory buffers for all cu sizes
  */
 Void TTraTop::xMakeCuBuffers(const TComSPS& sps) {
   UInt maxDepth             = sps.getMaxTotalCUDepth();
@@ -449,6 +440,7 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   dstPic.setPicYuvResi(&getSliceEncoder()->getPicYuvResi());
 
   // Copy relevant TComPic data
+  // TODO: m_SEIs
   dstPic.setTLayer(srcPic.getTLayer());
   dstPic.setUsedByCurr(srcPic.getUsedByCurr());
   dstPic.setIsLongTerm(srcPic.getIsLongTerm());
@@ -458,7 +450,6 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   dstPic.setCheckLTMSBPresent(srcPic.getCheckLTMSBPresent());
   dstPic.setTopField(srcPic.isTopField());
   dstPic.setField(srcPic.isField());
-  // TODO: m_SEIs
 
   // Source picture
   TComPicYuv* reconPlane = const_cast<TComPic&>(srcPic).getPicYuvRec();
@@ -586,6 +577,7 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
  */
 Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   UInt cuDepth = cu.getDepth(0);
+  UInt cuWidth = cu.getWidth(0);
 
   // Get original, prediction, residual, and reconstruction yuv buffers
   TComYuv& origBuff = m_originalBuffer[cuDepth];
@@ -604,8 +596,8 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   getPredSearch()->motionCompensation(&cu, &predBuff);
 
   // Obtain prediction error by computing (original - prediction)
-  // Note: store in residual
-  resiBuff.subtract(&origBuff, &predBuff, 0, cu.getWidth(0));
+  // Note: store prediction error in residual buffer
+  resiBuff.subtract(&origBuff, &predBuff, 0, cuWidth);
 
   // Obtain real residual by transforming and quantizing prediction error
   TComTURecurse tu(&cu, 0, cuDepth);
@@ -618,7 +610,7 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
     &predBuff,
     &resiBuff,
     0,
-    cu.getWidth(0),
+    cuWidth,
     cu.getSlice()->getSPS()->getBitDepths()
   );
 
@@ -637,7 +629,8 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComTrQuant& transQuant = *getTrQuant();
   TComDataCU&  cu         = *tu.getCU();
-  TComYuv&     resiBuff   = m_originalBuffer[cu.getDepth(0)];
+  UChar        depth      = cu.getDepth(0);
+  TComYuv&     resiBuff   = m_residualBuffer[depth];
 
   if (!tu.ProcessComponentSection(component)) {
     return;
@@ -663,7 +656,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     return;
   }
 
-  // Handle recursive case
+  // Recurse through tus
   if (uiTrMode != cu.getTransformIdx(tuPartIndex)) {
     TComTURecurse tuChild(tu, false);
     do {
@@ -672,12 +665,11 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     return;
   }
 
-  const TComRectangle& tuRect      = tu.getRect(component);
-  const Int            uiStride    = resiBuff.getStride(component);
-        Pel*           rpcResidual = resiBuff.getAddr(component);
-        UInt           uiAddr      = tuRect.x0 + uiStride * tuRect.y0;
-        Pel*           pResi       = rpcResidual + uiAddr;
-        TCoeff*        pcCoeff     = cu.getCoeff(component) + tu.getCoefficientOffset(component);
+  const TComRectangle& tuRect    = tu.getRect(component);
+  const Int            stride    = resiBuff.getStride(component);
+  const UInt           tuOffset  = tuRect.x0 + stride * tuRect.y0;
+        Pel*           pResidual = resiBuff.getAddr(component) + tuOffset;
+        TCoeff*        pCoeff    = cu.getCoeff(component) + tu.getCoefficientOffset(component);
 
   // Requantization
   if (!areAllCoefficientsZero) {
@@ -688,9 +680,9 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     transQuant.transformNxN(
       tu,
       component,
-      pResi,
-      uiStride,
-      pcCoeff,
+      pResidual,
+      stride,
+      pCoeff,
 #if ADAPTIVE_QP_SELECTION
       cu.getArlCoeff(component),
 #endif
@@ -702,9 +694,9 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     transQuant.invTransformNxN(
       tu,
       component,
-      pResi,
-      uiStride,
-      pcCoeff,
+      pResidual,
+      stride,
+      pCoeff,
       qp
     );
   }
@@ -723,25 +715,21 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
   // Cross-component prediction
   if (shouldApplyCrossComponentPrediction) {
-    const Pel *piResiLuma = resiBuff.getAddr(COMPONENT_Y);
-    const Int  strideLuma = resiBuff.getStride(COMPONENT_Y);
-    const Int  tuWidth    = tu.getRect(component).width;
-    const Int  tuHeight   = tu.getRect(component).height;
-          Pel* pResi     = rpcResidual + uiAddr;
-    const Pel* pResiLuma = piResiLuma  + uiAddr;
+    const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
+    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
 
     transQuant.crossComponentPrediction(
-      tu,
-      component,
-      pResiLuma,
-      pResi,
-      pResi,
-      tuWidth,
-      tuHeight,
-      strideLuma,
-      uiStride,
-      uiStride,
-      true
+      tu,            //       TComTU&       rTu,
+      component,     // const ComponentID   compID,
+      pResidualLuma, // const Pel*          piResiL,
+      pResidual,     // const Pel*          piResiC,
+      pResidual,     //       Pel*          piResiT,
+      tuRect.width,  // const Int           width,
+      tuRect.height, // const Int           height,
+      strideLuma,    // const Int           strideL,
+      stride,        // const Int           strideC,
+      stride,        // const Int           strideT,
+      true           // const Bool          reverse
     );
   }
 }
