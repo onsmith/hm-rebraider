@@ -1007,6 +1007,9 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
   memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
 
+  // DEBUG: Clear initial coefficients
+  memset(pCoeff, 0, numCoeffs * sizeof(TCoeff));
+
   // Transform and quantize
   TCoeff       absSum     = 0;
   TComTrQuant& transQuant = *getTrQuant();
@@ -1031,7 +1034,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       break;
     }
   }
-  if (!areCoeffsSame) {
+  if (true) {
     std::cout << "Intra Source:\n";
     printMat(
       origBuff.getAddr(component) + tuOffset,
@@ -1071,11 +1074,13 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
     );
     std::cout << std::endl;
-    std::getchar();
-  } else {
+  }
+  
+  if (areCoeffsSame) {
     std::cout << "Intra coeffs match!\n";
   }
   delete[] beforeCoeffs;
+  std::getchar();
 
   // Inverse transform and quantize
   transQuant.invTransformNxN(
