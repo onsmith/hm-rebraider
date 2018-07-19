@@ -166,14 +166,18 @@ protected:
   // Requantizes an intra-predicted cu
   Void xRequantizeIntraCu(TComDataCU& cu);
   
-  // Recursively requantizes an intra-predicted luma tu
-  Void xRequantizeIntraLumaTu(TComTURecurse& tu);
-  
-  // Recursively requantizes an intra-predicted chroma tu
-  Void xRequantizeIntraChromaTu(TComTURecurse& tu);
+  // Recursively requantizes an intra-predicted tu channel type
+  Void xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType);
 
-  // Recursively requantizes an intra-predicted tu
+  // Recursively requantizes an intra-predicted tu block
   Void xRequantizeIntraTu(TComTURecurse& tu, ComponentID component);
+
+  // Calculates the prediction mode for a given tu block
+  UInt xGetTuPredMode(TComTURecurse& tu, ComponentID component) const;
+
+  // Determines if the intra prediction source samples for a given tu block
+  //   should be filtered before used in intra prediction
+  Bool xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID component) const;
 
 
   /**

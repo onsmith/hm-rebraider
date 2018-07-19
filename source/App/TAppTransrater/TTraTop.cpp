@@ -843,9 +843,23 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
   // Guess this method can't handle IPCM CUs
   if (cu.getIPCMFlag(0)) {
     assert(0);
+    // TODO
     //xReconPCM( pcCU, uiDepth );
     //return;
   }
+  
+  // Get original, prediction, residual, and reconstruction yuv buffers
+  TComYuv& origBuff = m_originalBuffer[cuDepth];
+  TComYuv& predBuff = m_predictionBuffer[cuDepth];
+  TComYuv& resiBuff = m_residualBuffer[cuDepth];
+  TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
+
+  // Obtain original signal by copying yuv data from source picture
+  origBuff.copyFromPicYuv(
+    pic.getPicYuvOrg(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
 
   // Requantize luma
   {
@@ -859,7 +873,7 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
     );
 
     do {
-      xRequantizeIntraLumaTu(tu);
+      xRequantizeIntraTu(tu, ChannelType::CHANNEL_TYPE_LUMA);
     } while (tu.nextSection(parentTu));
   }
 
@@ -878,16 +892,32 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
     );
 
     do {
-      xRequantizeIntraChromaTu(tu);
+      xRequantizeIntraTu(tu, ChannelType::CHANNEL_TYPE_CHROMA);
     } while (tu.nextSection(parentTu));
   }
+
+  // Obtain reconstructed signal by computing (prediction + residual)
+  recoBuff.addClip(
+    &predBuff,
+    &resiBuff,
+    0,
+    cuWidth,
+    cu.getSlice()->getSPS()->getBitDepths()
+  );
+
+  // Copy reconstructed signal back into picture
+  recoBuff.copyToPicYuv(
+    pic.getPicYuvRec(),
+    cu.getCtuRsAddr(),
+    cu.getZorderIdxInCtu()
+  );
 }
 
 
 /**
- * Requantizes an intra-predicted luma tu
+ * Requantizes an intra-predicted tu channel type
  */
-Void TTraTop::xRequantizeIntraLumaTu(TComTURecurse& tu) {
+Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
   TComDataCU& cu           = *tu.getCU();
   UInt        uiTrDepth    = tu.GetTransformDepthRel();
   UInt        uiAbsPartIdx = tu.GetAbsPartIdxTU();
@@ -897,42 +927,24 @@ Void TTraTop::xRequantizeIntraLumaTu(TComTURecurse& tu) {
   if (uiTrMode != uiTrDepth) {
     TComTURecurse tuChild(tu, false);
     do {
-      xRequantizeIntraLumaTu(tuChild);
+      xRequantizeIntraTu(tuChild, channelType);
     } while (tuChild.nextSection(tu));
     return;
   }
 
-  xRequantizeIntraTu(tu, COMPONENT_Y);
-}
-
-
-/**
- * Requantizes an intra-predicted chroma tu
- */
-Void TTraTop::xRequantizeIntraChromaTu(TComTURecurse& tu) {
-  TComDataCU& cu           = *tu.getCU();
-  UInt        uiTrDepth    = tu.GetTransformDepthRel();
-  UInt        uiAbsPartIdx = tu.GetAbsPartIdxTU();
-  UInt        uiTrMode     = cu.getTransformIdx(uiAbsPartIdx);
-
-  // Recurse through tus
-  if (uiTrMode != uiTrDepth) {
-    TComTURecurse tuChild(tu, false);
-    do {
-      xRequantizeIntraLumaTu(tuChild);
-    } while (tuChild.nextSection(tu));
-    return;
-  }
-
-  const UInt numValidComp = getNumberValidComponents(tu.GetChromaFormat());
-  for (UInt c = COMPONENT_Cb; c < numValidComp; c++) {
-    xRequantizeIntraTu(tu, static_cast<ComponentID>(c));
+  if (channelType == ChannelType::CHANNEL_TYPE_LUMA) {
+    xRequantizeIntraTu(tu, COMPONENT_Y);
+  } else {
+    const UInt numValidComp = getNumberValidComponents(tu.GetChromaFormat());
+    for (UInt c = COMPONENT_Cb; c < numValidComp; c++) {
+      xRequantizeIntraTu(tu, static_cast<ComponentID>(c));
+    }
   }
 }
 
 
 /**
- * Recursively requantizes an intra-predicted tu
+ * Recursively requantizes an intra-predicted tu block
  */
 Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   // Bail if this TU should not be processed
@@ -940,20 +952,13 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     return;
   }
 
-        TComDataCU& cu           = *tu.getCU();
-  const UInt        cuDepth      = cu.getDepth(0);
-
-  // Get original, prediction, residual, and reconstruction yuv buffers
-  TComYuv& origBuff = m_originalBuffer[cuDepth];
-  TComYuv& predBuff = m_predictionBuffer[cuDepth];
-  TComYuv& resiBuff = m_residualBuffer[cuDepth];
-  TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
-
+        TComDataCU&    cu       = *tu.getCU();
+  const UInt           cuDepth  = cu.getDepth(0);
   const TComRectangle& tuRect   = tu.getRect(component);
   const UInt           tuWidth  = tuRect.width;
   const UInt           tuHeight = tuRect.height;
 
-  // Handle vertical split
+  // Recursively handle vertical split
   if (tuWidth != tuHeight) {
     TComTURecurse childTu(tu, false, TComTU::VERTICAL_SPLIT, true, component);
 
@@ -962,45 +967,132 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     } while (childTu.nextSection(tu));
     return;
   }
+
+  // Get original, prediction, residual, and reconstruction yuv buffers
+  TComYuv& origBuff = m_originalBuffer[cuDepth];
+  TComYuv& predBuff = m_predictionBuffer[cuDepth];
+  TComYuv& resiBuff = m_residualBuffer[cuDepth];
+  TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
   
   const UInt         uiAbsPartIdx = tu.GetAbsPartIdxTU();
-  const TComSPS&     sps          = *cu.getSlice()->getSPS();
-  const ChromaFormat chromaFormat = tu.GetChromaFormat();
+        Pel*         pPrediction  = predBuff.getAddr(component, uiAbsPartIdx);
+        Pel*         pResidual    = resiBuff.getAddr(component, uiAbsPartIdx);
+  const UInt         intraMode    = xGetTuPredMode(tu, component);
   const UInt         cuStride     = recoBuff.getStride(component);
-        Pel*         pPredict     = predBuff.getAddr(component, uiAbsPartIdx);
-  const Bool         bIsLuma      = isLuma(component);
-
-  const UInt predMode      = cu.getIntraDir(toChannelType(component), uiAbsPartIdx);
-  const UInt partsPerMinCU = 1 << (2 * (sps.getMaxTotalCUDepth() - sps.getLog2DiffMaxMinCodingBlockSize()));
-  const UInt codedMode     = (predMode == DM_CHROMA_IDX && !bIsLuma) ? cu.getIntraDir(CHANNEL_TYPE_LUMA, getChromasCorrespondingPULumaIdx(uiAbsPartIdx, chromaFormat, partsPerMinCU)) : predMode;
-  const UInt finalMode     = (chromaFormat == CHROMA_422 && !bIsLuma) ? g_chroma422IntraAngleMappingTable[codedMode] : codedMode;
 
   const Bool shouldFilterPredictions =
-    TComPrediction::filteringIntraReferenceSamples(
-      component,
-      finalMode,
-      tuWidth,
-      tuHeight,
-      chromaFormat,
-      sps.getSpsRangeExtension().getIntraSmoothingDisabledFlag()
-  );
+    xShouldFilterIntraSourceSamples(tu, component);
 
   TComPrediction& predictor = *getPredSearch();
 
+  // Fill intra prediction reference sample buffers
   predictor.initIntraPatternChType(
     tu,
     component,
     shouldFilterPredictions
   );
 
+  // Obtain prediction
   predictor.predIntraAng(
     component,
-    finalMode,
+    intraMode,
     nullptr,
     0,
-    pPredict,
+    pPrediction,
     cuStride,
     tu,
     shouldFilterPredictions
+  );
+
+  // Obtain prediction error
+
+  // Set qp for quantization
+  const QpParam qp(cu, component);
+
+  // Get pointer to coefficient buffer
+  TCoeff* pCoeff = cu.getCoeff(component) + tu.getCoefficientOffset(component);
+
+  // Transform and quantize
+  TCoeff absSum = 0;
+  TComTrQuant& transQuant = *getTrQuant();
+  transQuant.transformNxN(
+    tu,
+    component,
+    pResidual,
+    cuStride,
+    pCoeff,
+#if ADAPTIVE_QP_SELECTION
+    cu.getArlCoeff(component),
+#endif
+    absSum,
+    qp
+  );
+
+  // Inverse transform and quantize
+  transQuant.invTransformNxN(
+    tu,
+    component,
+    pResidual,
+    cuStride,
+    pCoeff,
+    qp
+  );
+}
+
+
+/**
+ * Calculates the intra prediction mode for a given tu block
+ */
+UInt TTraTop::xGetTuPredMode(TComTURecurse& tu, ComponentID component) const {
+  const TComDataCU&  cu            = *tu.getCU();
+  const TComSPS&     sps           = *cu.getSlice()->getSPS();
+  const Bool         isChromaBlock = isChroma(component);
+  const UInt         tuPartAddress = tu.GetAbsPartIdxTU();
+  const ChromaFormat chromaFormat  = tu.GetChromaFormat();
+
+  const UInt predMode =
+    cu.getIntraDir(toChannelType(component), tuPartAddress);
+
+  const UInt partsPerMinCU = 1 <<
+    (2 * (sps.getMaxTotalCUDepth() - sps.getLog2DiffMaxMinCodingBlockSize()));
+
+  const UInt intraDirIndex = getChromasCorrespondingPULumaIdx(
+    tuPartAddress,
+    chromaFormat,
+    partsPerMinCU
+  );
+
+  const UInt codedMode = (predMode == DM_CHROMA_IDX && isChromaBlock) ?
+    cu.getIntraDir(CHANNEL_TYPE_LUMA, intraDirIndex) : predMode;
+
+  if (chromaFormat == CHROMA_422 && isChromaBlock) {
+    return g_chroma422IntraAngleMappingTable[codedMode];
+  } else {
+    return codedMode;
+  }
+}
+
+
+/**
+ * Determines if the intra prediction source samples for a given tu block
+ *   should be filtered before used in intra prediction
+ */
+Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID component) const {
+  const TComDataCU&  cu           = *tu.getCU();
+  const TComSPS&     sps          = *cu.getSlice()->getSPS();
+  const ChromaFormat chromaFormat = tu.GetChromaFormat();
+  const UInt         intraMode    = xGetTuPredMode(tu, component);
+
+  const TComRectangle& tuRect   = tu.getRect(component);
+  const UInt           tuWidth  = tuRect.width;
+  const UInt           tuHeight = tuRect.height;
+
+  return TComPrediction::filteringIntraReferenceSamples(
+    component,
+    intraMode,
+    tuWidth,
+    tuHeight,
+    chromaFormat,
+    sps.getSpsRangeExtension().getIntraSmoothingDisabledFlag()
   );
 }
