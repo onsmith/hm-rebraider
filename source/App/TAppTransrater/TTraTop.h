@@ -187,8 +187,8 @@ protected:
   //   another
   Void xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst);
   
-  // Sets the scaling list on the transquant object
-  Void xSetScalingList(TComSlice& slice);
+  // Resets the scaling list on the transquant object for a given slice
+  Void xResetScalingList(TComSlice& slice);
 };
 
 

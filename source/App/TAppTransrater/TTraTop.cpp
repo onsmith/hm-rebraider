@@ -65,7 +65,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   encPic.setCurrSliceIdx(encPic.getNumAllocatedSlice() - 1);
 
   // Set the slice scaling list
-  xSetScalingList(encSlice);
+  xResetScalingList(encSlice);
 
   // Requantize the slice to achieve a target rate
   xRequantizeSlice(encSlice);
@@ -672,6 +672,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     (isLuma(component) || !isCrossComponentPredictionEnabled);
 
   if (canSkipTransQuant) {
+    // TODO: Check this
     return;
   }
 
@@ -960,16 +961,18 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   const UInt intraMode    = xGetTuPredMode(tu, component);
   const UInt cuStride     = recoBuff.getStride(component);
   const UInt tuOffset     = tuRect.x0 + cuStride * tuRect.y0;
-        Pel* pOriginal    = origBuff.getAddr(component, tuPartIndex);
-        Pel* pPrediction  = predBuff.getAddr(component, tuPartIndex);
-        Pel* pResidual    = resiBuff.getAddr(component, tuPartIndex);
-        Pel* pReconstruct = recoBuff.getAddr(component, tuPartIndex);
 
-  const Bool shouldFilterPredictions =
-    xShouldFilterIntraSourceSamples(tu, component);
+  // Get direct pointers to the buffered pixel values
+  Pel* pOriginal    = origBuff.getAddr(component, tuPartIndex);
+  Pel* pPrediction  = predBuff.getAddr(component, tuPartIndex);
+  Pel* pResidual    = resiBuff.getAddr(component, tuPartIndex);
+  Pel* pReconstruct = recoBuff.getAddr(component, tuPartIndex);
 
   TComPrediction& predictor  = *getPredSearch();
   TComTrQuant&    transQuant = *getTrQuant();
+
+  const Bool shouldFilterPredictions =
+    xShouldFilterIntraSourceSamples(tu, component);
 
   // Fill intra prediction reference sample buffers
   predictor.initIntraPatternChType(
@@ -990,122 +993,137 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     shouldFilterPredictions
   );
 
-  // Obtain prediction error (store in residual buffer)
-  {
-    Pel* rowOrig = pOriginal;
-    Pel* rowPred = pPrediction;
-    Pel* rowResi = pResidual;
-
+  Bool areAllDecodedCoefficientsZero =
+    cu.getCbf(tuPartIndex, component, tu.GetTransformDepthRel()) == 0;
+  
+  // If source encoding had no residual coefficients, then there is no residual
+  if (areAllDecodedCoefficientsZero) {
+    Pel* rowResi  = pResidual;
+    UInt rowWidth = tuWidth * sizeof(Pel);
     for (UInt y = 0; y < tuHeight; y++) {
-      for (UInt x = 0; x < tuWidth; x++) {
-        rowResi[x] = rowOrig[x] - rowPred[x];
-      }
-      rowOrig += cuStride;
-      rowPred += cuStride;
+      memset(rowResi, 0, rowWidth);
       rowResi += cuStride;
     }
-  }
 
-  // Set qp for quantization
-  const QpParam qp(cu, component);
+  // Otherwise, calculate and requantize the prediction error
+  } else {
+    // Calculate the prediction error (store in residual buffer)
+    {
+      Pel* rowOrig = pOriginal;
+      Pel* rowPred = pPrediction;
+      Pel* rowResi = pResidual;
 
-  // Get pointer to coefficient buffer
-  TCoeff* pCoeff = cu.getCoeff(component) + tu.getCoefficientOffset(component);
-
-  // DEBUG: Copy initial coefficients
-  UInt numCoeffs =
-    (tu.getRect(component).width * tu.getRect(component).height) >>
-    (isChroma(component) ? 2 : 0);
-  TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
-  memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
-
-  // DEBUG: Clear initial coefficients
-  memset(pCoeff, 0, numCoeffs * sizeof(TCoeff));
-
-#if RDOQ_CHROMA_LAMBDA
-  transQuant.selectLambda(component);
-#endif
-
-  // Transform and quantize
-  TCoeff absSum = 0;
-  transQuant.transformNxN(
-    tu,
-    component,
-    pResidual,
-    cuStride,
-    pCoeff,
-#if ADAPTIVE_QP_SELECTION
-    cu.getArlCoeff(component),
-#endif
-    absSum,
-    qp
-  );
-
-  // DEBUG: Compare coefficients and output to stdout if different
-  Bool areCoeffsSame = true;
-  for (int i = 0; i < numCoeffs; i++) {
-    if (beforeCoeffs[i] != pCoeff[i]) {
-      areCoeffsSame = false;
-      break;
+      for (UInt y = 0; y < tuHeight; y++) {
+        for (UInt x = 0; x < tuWidth; x++) {
+          rowResi[x] = rowOrig[x] - rowPred[x];
+        }
+        rowOrig += cuStride;
+        rowPred += cuStride;
+        rowResi += cuStride;
+      }
     }
-  }
-  if (false) {
-    std::cout << "Intra Source:\n";
-    printMat(
-      origBuff.getAddr(component) + tuOffset,
-      tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-      tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
-    );
-    std::cout << std::endl;
 
-    std::cout << "Intra Prediction:\n";
-    printMat(
-      predBuff.getAddr(component) + tuOffset,
-      tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-      tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
-    );
-    std::cout << std::endl;
+    // Set qp for quantization
+    const QpParam qp(cu, component);
 
-    std::cout << "Intra Residual:\n";
-    printMat(
+    // Get pointer to coefficient buffer
+    TCoeff* pCoeff = cu.getCoeff(component) + tu.getCoefficientOffset(component);
+
+    // DEBUG: Copy initial coefficients
+    UInt numCoeffs =
+      (tu.getRect(component).width * tu.getRect(component).height) >>
+      (isChroma(component) ? 2 : 0);
+    TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
+    memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
+
+    // DEBUG: Clear initial coefficients
+    memset(pCoeff, 0, numCoeffs * sizeof(TCoeff));
+
+    // TODO: Is this necessary for transcoding?
+#if RDOQ_CHROMA_LAMBDA
+    transQuant.selectLambda(component);
+#endif
+
+    // Transform and quantize
+    TCoeff absSum = 0;
+    transQuant.transformNxN(
+      tu,
+      component,
       pResidual,
-      tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-      tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
-    );
-    std::cout << std::endl;
-
-    std::cout << "Intra Decoded Coeff:\n";
-    printMat(
-      beforeCoeffs,
-      tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-      tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
-    );
-    std::cout << std::endl;
-
-    std::cout << "Intra Recoded Coeff:\n";
-    printMat(
+      cuStride,
       pCoeff,
-      tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-      tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+#if ADAPTIVE_QP_SELECTION
+      cu.getArlCoeff(component),
+#endif
+      absSum,
+      qp
     );
-    std::cout << std::endl;
-  }
-  
-  if (areCoeffsSame) {
-    std::cout << "Intra coeffs match!\n";
-  }
-  delete[] beforeCoeffs;
-  //std::getchar();
 
-  // Inverse transform and quantize
-  transQuant.invTransformNxN(
-    tu,
-    component,
-    pResidual,
-    cuStride,
-    pCoeff,
-    qp
-  );
+    // DEBUG: Compare coefficients and output to stdout if different
+    Bool areCoeffsSame = true;
+    for (int i = 0; i < numCoeffs; i++) {
+      if (beforeCoeffs[i] != pCoeff[i]) {
+        areCoeffsSame = false;
+        break;
+      }
+    }
+    if (!areCoeffsSame) {
+      std::cout << "Intra Source:\n";
+      printMat(
+        origBuff.getAddr(component) + tuOffset,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+
+      std::cout << "Intra Prediction:\n";
+      printMat(
+        predBuff.getAddr(component) + tuOffset,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+
+      std::cout << "Intra Residual:\n";
+      printMat(
+        pResidual,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+
+      std::cout << "Intra Decoded Coeff:\n";
+      printMat(
+        beforeCoeffs,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+
+      std::cout << "Intra Recoded Coeff:\n";
+      printMat(
+        pCoeff,
+        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
+        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+      );
+      std::cout << std::endl;
+    }
+    if (areCoeffsSame) {
+      std::cout << "Intra coeffs match!\n";
+    }
+    delete[] beforeCoeffs;
+    //std::getchar();
+
+    // Inverse transform and quantize
+    transQuant.invTransformNxN(
+      tu,
+      component,
+      pResidual,
+      cuStride,
+      pCoeff,
+      qp
+    );
+  }
 
   // Perform cross component prediction
   Bool isCrossComponentPredictionEnabled =
@@ -1136,30 +1154,32 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     );
   }
 
-  // Calculate reconstruction and copy back to picture
-  TComPic& pic     = *cu.getPic();
-  Pel*     pPred   = pPrediction;
-  Pel*     pResi   = pResidual;
-  Pel*     pReco   = pReconstruct;
-  Pel*     pRecPic = pic.getPicYuvRec()->getAddr(
-    component,
-    cu.getCtuRsAddr(),
-    cu.getZorderIdxInCtu() + tuPartIndex
-  );
+  // Calculate reconstruction (prediction + residual) and copy back to picture
+  {
+    TComPic& pic     = *cu.getPic();
+    Pel*     pPred   = pPrediction;
+    Pel*     pResi   = pResidual;
+    Pel*     pReco   = pReconstruct;
+    Pel*     pRecPic = pic.getPicYuvRec()->getAddr(
+      component,
+      cu.getCtuRsAddr(),
+      cu.getZorderIdxInCtu() + tuPartIndex
+    );
   
-  const TComSPS& sps          = *cu.getSlice()->getSPS();
-  const Int      clipbd       = sps.getBitDepth(toChannelType(component));
-  const UInt     recPicStride = pic.getPicYuvRec()->getStride(component);
+    const TComSPS& sps          = *cu.getSlice()->getSPS();
+    const Int      clipBitDepth = sps.getBitDepth(toChannelType(component));
+    const UInt     recPicStride = pic.getPicYuvRec()->getStride(component);
 
-  for (UInt y = 0; y < tuHeight; y++) {
-    for (UInt x = 0; x < tuWidth; x++) {
-      pReco  [x] = ClipBD(pPred[x] + pResi[x], clipbd);
-      pRecPic[x] = pReco[x];
+    for (UInt y = 0; y < tuHeight; y++) {
+      for (UInt x = 0; x < tuWidth; x++) {
+        pReco  [x] = ClipBD(pPred[x] + pResi[x], clipBitDepth);
+        pRecPic[x] = pReco[x];
+      }
+      pPred   += cuStride;
+      pResi   += cuStride;
+      pReco   += cuStride;
+      pRecPic += recPicStride;
     }
-    pPred   += cuStride;
-    pResi   += cuStride;
-    pReco   += cuStride;
-    pRecPic += recPicStride;
   }
 }
 
@@ -1223,9 +1243,9 @@ Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID com
 
 
 /**
- * Sets the scaling list on the transquant object
+ * Resets the scaling list on the transquant object for a given slice
  */
-Void TTraTop::xSetScalingList(TComSlice& slice) {
+Void TTraTop::xResetScalingList(TComSlice& slice) {
         TComTrQuant& transQuant = *getTrQuant();
   const TComSPS&     sps        = *slice.getSPS();
   const TComPPS&     pps        = *slice.getPPS();
@@ -1233,7 +1253,7 @@ Void TTraTop::xSetScalingList(TComSlice& slice) {
   if (sps.getScalingListFlag()) {
     TComScalingList scalingList;
     if (pps.getScalingListPresentFlag()) {
-      scalingList = slice.getPPS()->getScalingList();
+      scalingList = pps.getScalingList();
     } else if (sps.getScalingListPresentFlag()) {
       scalingList = sps.getScalingList();
     } else {
