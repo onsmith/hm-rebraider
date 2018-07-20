@@ -181,11 +181,14 @@ protected:
 
 
   /**
-   * CU copying
+   * Misc
    */
   // Copies pixels corresponding to a given cu directly from one TComPicYuv to
   //   another
   Void xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst);
+  
+  // Sets the scaling list on the transquant object
+  Void xSetScalingList(TComSlice& slice);
 };
 
 

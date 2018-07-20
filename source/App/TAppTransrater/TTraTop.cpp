@@ -64,6 +64,9 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   // Set the current encoder slice
   encPic.setCurrSliceIdx(encPic.getNumAllocatedSlice() - 1);
 
+  // Set the slice scaling list
+  xSetScalingList(encSlice);
+
   // Requantize the slice to achieve a target rate
   xRequantizeSlice(encSlice);
 
@@ -953,19 +956,20 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   TComYuv& resiBuff = m_residualBuffer[cuDepth];
   TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
   
-  const UInt         uiAbsPartIdx = tu.GetAbsPartIdxTU();
-  const UInt         intraMode    = xGetTuPredMode(tu, component);
-  const UInt         cuStride     = recoBuff.getStride(component);
-  const UInt         tuOffset     = tuRect.x0 + cuStride * tuRect.y0;
-        Pel*         pOriginal    = origBuff.getAddr(component, uiAbsPartIdx);
-        Pel*         pPrediction  = predBuff.getAddr(component, uiAbsPartIdx);
-        Pel*         pResidual    = resiBuff.getAddr(component, uiAbsPartIdx);
-        Pel*         pReconstruct = recoBuff.getAddr(component, uiAbsPartIdx);
+  const UInt tuPartIndex  = tu.GetAbsPartIdxTU();
+  const UInt intraMode    = xGetTuPredMode(tu, component);
+  const UInt cuStride     = recoBuff.getStride(component);
+  const UInt tuOffset     = tuRect.x0 + cuStride * tuRect.y0;
+        Pel* pOriginal    = origBuff.getAddr(component, tuPartIndex);
+        Pel* pPrediction  = predBuff.getAddr(component, tuPartIndex);
+        Pel* pResidual    = resiBuff.getAddr(component, tuPartIndex);
+        Pel* pReconstruct = recoBuff.getAddr(component, tuPartIndex);
 
   const Bool shouldFilterPredictions =
     xShouldFilterIntraSourceSamples(tu, component);
 
-  TComPrediction& predictor = *getPredSearch();
+  TComPrediction& predictor  = *getPredSearch();
+  TComTrQuant&    transQuant = *getTrQuant();
 
   // Fill intra prediction reference sample buffers
   predictor.initIntraPatternChType(
@@ -987,10 +991,18 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   );
 
   // Obtain prediction error (store in residual buffer)
-  for (UInt y = 0; y < tuHeight; y++) {
-    for (UInt x = 0; x < tuWidth; x++) {
-      const UInt i = (y * cuStride) + x;
-      pResidual[i] = pOriginal[i] - pPrediction[i];
+  {
+    Pel* rowOrig = pOriginal;
+    Pel* rowPred = pPrediction;
+    Pel* rowResi = pResidual;
+
+    for (UInt y = 0; y < tuHeight; y++) {
+      for (UInt x = 0; x < tuWidth; x++) {
+        rowResi[x] = rowOrig[x] - rowPred[x];
+      }
+      rowOrig += cuStride;
+      rowPred += cuStride;
+      rowResi += cuStride;
     }
   }
 
@@ -1010,9 +1022,12 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   // DEBUG: Clear initial coefficients
   memset(pCoeff, 0, numCoeffs * sizeof(TCoeff));
 
+#if RDOQ_CHROMA_LAMBDA
+  transQuant.selectLambda(component);
+#endif
+
   // Transform and quantize
-  TCoeff       absSum     = 0;
-  TComTrQuant& transQuant = *getTrQuant();
+  TCoeff absSum = 0;
   transQuant.transformNxN(
     tu,
     component,
@@ -1034,7 +1049,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       break;
     }
   }
-  if (true) {
+  if (false) {
     std::cout << "Intra Source:\n";
     printMat(
       origBuff.getAddr(component) + tuOffset,
@@ -1080,7 +1095,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     std::cout << "Intra coeffs match!\n";
   }
   delete[] beforeCoeffs;
-  std::getchar();
+  //std::getchar();
 
   // Inverse transform and quantize
   transQuant.invTransformNxN(
@@ -1094,7 +1109,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
   // Perform cross component prediction
   Bool isCrossComponentPredictionEnabled =
-    cu.getCrossComponentPredictionAlpha(uiAbsPartIdx, component) != 0;
+    cu.getCrossComponentPredictionAlpha(tuPartIndex, component) != 0;
 
   Bool shouldApplyCrossComponentPrediction = (
     isChroma(component) &&
@@ -1129,7 +1144,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   Pel*     pRecPic = pic.getPicYuvRec()->getAddr(
     component,
     cu.getCtuRsAddr(),
-    cu.getZorderIdxInCtu() + uiAbsPartIdx
+    cu.getZorderIdxInCtu() + tuPartIndex
   );
   
   const TComSPS& sps          = *cu.getSlice()->getSPS();
@@ -1204,4 +1219,34 @@ Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID com
     chromaFormat,
     sps.getSpsRangeExtension().getIntraSmoothingDisabledFlag()
   );
+}
+
+
+/**
+ * Sets the scaling list on the transquant object
+ */
+Void TTraTop::xSetScalingList(TComSlice& slice) {
+        TComTrQuant& transQuant = *getTrQuant();
+  const TComSPS&     sps        = *slice.getSPS();
+  const TComPPS&     pps        = *slice.getPPS();
+
+  if (sps.getScalingListFlag()) {
+    TComScalingList scalingList;
+    if (pps.getScalingListPresentFlag()) {
+      scalingList = slice.getPPS()->getScalingList();
+    } else if (sps.getScalingListPresentFlag()) {
+      scalingList = sps.getScalingList();
+    } else {
+      scalingList.setDefaultScalingList();
+    }
+    transQuant.setScalingListDec(scalingList);
+    transQuant.setUseScalingList(true);
+  } else {
+    const Int maxLog2TrDynamicRange[MAX_NUM_CHANNEL_TYPE] = {
+      sps.getMaxLog2TrDynamicRange(CHANNEL_TYPE_LUMA),
+      sps.getMaxLog2TrDynamicRange(CHANNEL_TYPE_CHROMA)
+    };
+    transQuant.setFlatScalingList(maxLog2TrDynamicRange, sps.getBitDepths());
+    transQuant.setUseScalingList(false);
+  }
 }
