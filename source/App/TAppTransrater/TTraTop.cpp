@@ -996,7 +996,8 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   Bool areAllDecodedCoefficientsZero =
     cu.getCbf(tuPartIndex, component, tu.GetTransformDepthRel()) == 0;
   
-  // If source encoding had no residual coefficients, then there is no residual
+  // If source encoding had no residual coefficients, then the recoded block
+  //   also should have no residual coefficients
   if (areAllDecodedCoefficientsZero) {
     Pel* rowResi  = pResidual;
     UInt rowWidth = tuWidth * sizeof(Pel);
@@ -1005,7 +1006,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       rowResi += cuStride;
     }
 
-  // Otherwise, calculate and requantize the prediction error
+  // Calculate and requantize the prediction error
   } else {
     // Calculate the prediction error (store in residual buffer)
     {
@@ -1107,12 +1108,9 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
         tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
       );
       std::cout << std::endl;
-    }
-    if (areCoeffsSame) {
-      std::cout << "Intra coeffs match!\n";
+      std::getchar();
     }
     delete[] beforeCoeffs;
-    //std::getchar();
 
     // Inverse transform and quantize
     transQuant.invTransformNxN(
@@ -1122,6 +1120,16 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       cuStride,
       pCoeff,
       qp
+    );
+
+    // Update coding block flag
+    Bool areAllCoefficientsZero   = (absSum == 0);
+    UInt componentDepthAdjustment = tu.GetTransformDepthTotalAdj(component);
+    cu.setCbfSubParts(
+      areAllCoefficientsZero,
+      component,
+      tuPartIndex,
+      componentDepthAdjustment
     );
   }
 
@@ -1134,7 +1142,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     isCrossComponentPredictionEnabled
   );
 
-  // Cross-component prediction
+  // TODO: Should this be executed before transquant?
   if (shouldApplyCrossComponentPrediction) {
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
     const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
