@@ -724,7 +724,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         break;
       }
     }
-    if (!areCoeffsSame && false) {
+    if (!areCoeffsSame) {
       std::cout << "Inter Source:\n";
       printMat(
         origBuff.getAddr(component) + tuOffset,
@@ -1139,7 +1139,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
         tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
       );
       std::cout << std::endl;
-      //std::getchar();
+      std::getchar();
     }
     delete[] beforeCoeffs;
 
