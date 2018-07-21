@@ -696,9 +696,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     const QpParam qp(cu, component);
 
     // DEBUG: Copy initial coefficients
-    UInt numCoeffs =
-      (tu.getRect(component).width * tu.getRect(component).height) >>
-      (isChroma(component) ? 2 : 0);
+    UInt numCoeffs = tuRect.width * tuRect.height;
     TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
     memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
 
@@ -716,6 +714,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       absSum,
       qp
     );
+    Bool areAllCoefficientsZero = (absSum == 0);
 
     // DEBUG: Compare coefficients and output to stdout if different
     Bool areCoeffsSame = true;
@@ -725,7 +724,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         break;
       }
     }
-    if (!areCoeffsSame) {
+    if (!areCoeffsSame && false) {
       std::cout << "Inter Source:\n";
       printMat(
         origBuff.getAddr(component) + tuOffset,
@@ -766,8 +765,6 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       );
       std::cout << std::endl;
       std::getchar();
-    } else {
-      std::cout << "Inter coeffs match!\n";
     }
     delete[] beforeCoeffs;
 
@@ -780,21 +777,30 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
-  }
 
+    // Update coding block flag
+    cu.setCbfSubParts(
+      areAllCoefficientsZero,
+      component,
+      tuPartIndex,
+      tu.GetTransformDepthTotalAdj(component)
+    );
+  }
+  
+  // Cross-component prediction
+  // TODO: Check the location of this block
   Bool isCrossComponentPredictionUsed =
     cu.getCrossComponentPredictionAlpha(tuPartIndex, component) != 0;
 
-  Bool areAllLumaCoefficientsZero =
+  Bool areAllDecodedLumaCoefficientsZero =
     cu.getCbf(tuPartIndex, COMPONENT_Y, uiTrMode) == 0;
 
   Bool shouldApplyCrossComponentPrediction = (
     isChroma(component) &&
     isCrossComponentPredictionUsed &&
-    !areAllLumaCoefficientsZero
+    !areAllDecodedLumaCoefficientsZero
    );
 
-  // Cross-component prediction
   if (shouldApplyCrossComponentPrediction) {
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
     const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
@@ -993,6 +999,32 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     shouldFilterPredictions
   );
 
+  // Perform cross component prediction
+  // TODO: Double check the location of cross component prediction
+  Bool shouldApplyCrossComponentPrediction = (
+    isChroma(component) &&
+    cu.getCrossComponentPredictionAlpha(tuPartIndex, component) != 0
+  );
+
+  if (shouldApplyCrossComponentPrediction) {
+    const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
+    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
+
+    transQuant.crossComponentPrediction(
+      tu,            //       TComTU&       rTu,
+      component,     // const ComponentID   compID,
+      pResidualLuma, // const Pel*          piResiL,
+      pResidual,     // const Pel*          piResiC,
+      pResidual,     //       Pel*          piResiT,
+      tuRect.width,  // const Int           width,
+      tuRect.height, // const Int           height,
+      strideLuma,    // const Int           strideL,
+      cuStride,      // const Int           strideC,
+      cuStride,      // const Int           strideT,
+      true           // const Bool          reverse
+    );
+  }
+
   Bool areAllDecodedCoefficientsZero =
     cu.getCbf(tuPartIndex, component, tu.GetTransformDepthRel()) == 0;
   
@@ -1031,9 +1063,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     TCoeff* pCoeff = cu.getCoeff(component) + tu.getCoefficientOffset(component);
 
     // DEBUG: Copy initial coefficients
-    UInt numCoeffs =
-      (tu.getRect(component).width * tu.getRect(component).height) >>
-      (isChroma(component) ? 2 : 0);
+    UInt numCoeffs = tuWidth * tuHeight;
     TCoeff* beforeCoeffs = new TCoeff[numCoeffs];
     memcpy(beforeCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
 
@@ -1059,6 +1089,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       absSum,
       qp
     );
+    Bool areAllCoefficientsZero = (absSum == 0);
 
     // DEBUG: Compare coefficients and output to stdout if different
     Bool areCoeffsSame = true;
@@ -1108,7 +1139,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
         tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
       );
       std::cout << std::endl;
-      std::getchar();
+      //std::getchar();
     }
     delete[] beforeCoeffs;
 
@@ -1123,43 +1154,16 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     );
 
     // Update coding block flag
-    Bool areAllCoefficientsZero   = (absSum == 0);
-    UInt componentDepthAdjustment = tu.GetTransformDepthTotalAdj(component);
     cu.setCbfSubParts(
       areAllCoefficientsZero,
       component,
       tuPartIndex,
-      componentDepthAdjustment
+      tu.GetTransformDepthTotalAdj(component)
     );
-  }
 
-  // Perform cross component prediction
-  Bool isCrossComponentPredictionEnabled =
-    cu.getCrossComponentPredictionAlpha(tuPartIndex, component) != 0;
-
-  Bool shouldApplyCrossComponentPrediction = (
-    isChroma(component) &&
-    isCrossComponentPredictionEnabled
-  );
-
-  // TODO: Should this be executed before transquant?
-  if (shouldApplyCrossComponentPrediction) {
-    const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
-    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
-
-    transQuant.crossComponentPrediction(
-      tu,            //       TComTU&       rTu,
-      component,     // const ComponentID   compID,
-      pResidualLuma, // const Pel*          piResiL,
-      pResidual,     // const Pel*          piResiC,
-      pResidual,     //       Pel*          piResiT,
-      tuRect.width,  // const Int           width,
-      tuRect.height, // const Int           height,
-      strideLuma,    // const Int           strideL,
-      cuStride,      // const Int           strideC,
-      cuStride,      // const Int           strideT,
-      true           // const Bool          reverse
-    );
+    // DEBUG: Check coefficient values and cbf
+    UInt nnzCoeffs = TEncEntropy::countNonZeroCoeffs(pCoeff, numCoeffs);
+    assert (nnzCoeffs == 0 && areAllCoefficientsZero || nnzCoeffs != 0 && !areAllCoefficientsZero);
   }
 
   // Calculate reconstruction (prediction + residual) and copy back to picture
