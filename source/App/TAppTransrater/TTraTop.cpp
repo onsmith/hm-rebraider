@@ -498,6 +498,37 @@ Void TTraTop::xRequantizeSlice(TComSlice& slice) {
 }
 
 
+// DEBUG: Method to print out raster-order matrix
+template<typename T>
+static Void printRMat(const T* pMat, UInt width, UInt height, UInt stride = 0) {
+  if (stride == 0) {
+    stride = width;
+  }
+
+  for (int h = 0; h < height; h++) {
+    for (int w = 0; w < width; w++) {
+      printf("%6i ", pMat[w]);
+    }
+    std::cout << std::endl;
+    pMat += stride;
+  }
+}
+
+
+// DEBUG: Method to print out z-order matrix
+template<typename T>
+static Void printZMat(const T* pMat, UInt width, UInt height, UInt stride) {
+  UInt i = 0;
+  for (int h = 0; h < height; h++) {
+    for (int w = 0; w < width; w++) {
+      printf("%6i ", pMat[g_auiRasterToZscan[i + w]]);
+    }
+    i += stride;
+    std::cout << std::endl;
+  }
+}
+
+
 /**
  * Recursively compress a ctu by altering residual qp
  */
@@ -546,6 +577,7 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
 
       childCuPartAddr += numPartsPerChildCu;
     }
+
     return;
   }
 
@@ -553,17 +585,19 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   TComDataCU& cu = m_cuBuffer[cuDepth];
   cu.copySubCU(&ctu, cuPartAddr);
 
+  if (cu.getSlice()->getPOC() == 5 && cu.getCtuRsAddr() == 104 && cuPartAddr == 48 && cuDepth == 2) {
+    std::cout << "CU-Level Intra Coefficients:\n";
+    printRMat(cu.getCoeff(ComponentID::COMPONENT_Y), cu.getWidth(0), cu.getHeight(0));
+
+    std::cout << "\nCU-Level Intra Luma CBFs:\n";
+    printZMat(cu.getCbf(ComponentID::COMPONENT_Y), cu.getWidth(0) >> 1, cu.getHeight(0) >> 1, cu.getWidth(0));
+  }
+
   // Get original, prediction, residual, and reconstruction yuv buffers
   TComYuv& origBuff = m_originalBuffer[cuDepth];
   TComYuv& predBuff = m_predictionBuffer[cuDepth];
   TComYuv& resiBuff = m_residualBuffer[cuDepth];
   TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
-
-  // If the current cu is skipped or lossless encoded, we can't requantize
-  if (cu.isSkipped(0) || cu.isLosslessCoded(0)) {
-    xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
-    return;
-  }
 
   // Requantize cu
   if (cu.isInter(0)) {
@@ -572,18 +606,6 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
     xRequantizeIntraCu(cu);
   } else {
     assert(0);
-  }
-}
-
-
-template<typename T>
-static Void printMat(const T* pMat, UInt width, UInt height) {
-  for (int h = 0; h < height; h++) {
-    for (int w = 0; w < width; w++) {
-      printf("%6i ", pMat[w]);
-    }
-    std::cout << std::endl;
-    pMat += width;
   }
 }
 
@@ -611,6 +633,16 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 
   // Obtain prediction by applying motion vectors
   getPredSearch()->motionCompensation(&cu, &predBuff);
+
+  // Handle skipped cu
+  if (cu.isSkipped(0)) {
+    predBuff.copyToPicYuv(
+      pic.getPicYuvRec(),
+      cu.getCtuRsAddr(),
+      cu.getZorderIdxInCtu()
+    );
+    return;
+  }
 
   // Obtain prediction error by computing (original - prediction)
   // Note: store prediction error in residual buffer
@@ -652,13 +684,14 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComYuv&     resiBuff   = m_residualBuffer[cuDepth];
 
   if (!tu.ProcessComponentSection(component)) {
+    assert(0);
     return;
   }
 
   UInt tuPartIndex = tu.GetAbsPartIdxTU();
   UInt uiTrMode = tu.GetTransformDepthRel();
 
-  Bool areAllCoefficientsZero =
+  Bool areAllDecodedCoefficientsZero =
     cu.getCbf(tuPartIndex, component, uiTrMode) == 0;
 
   Bool isCrossComponentPredictionEnabled =
@@ -668,7 +701,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       .getCrossComponentPredictionEnabledFlag();
 
   Bool canSkipTransQuant =
-    areAllCoefficientsZero &&
+    areAllDecodedCoefficientsZero &&
     (isLuma(component) || !isCrossComponentPredictionEnabled);
 
   if (canSkipTransQuant) {
@@ -692,7 +725,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         TCoeff*        pCoeff    = cu.getCoeff(component) + tu.getCoefficientOffset(component);
 
   // Requantization
-  if (!areAllCoefficientsZero) {
+  if (!areAllDecodedCoefficientsZero) {
     const QpParam qp(cu, component);
 
     // DEBUG: Copy initial coefficients
@@ -724,44 +757,46 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         break;
       }
     }
-    if (!areCoeffsSame) {
-      std::cout << "Inter Source:\n";
-      printMat(
+    if (!areCoeffsSame && false) {
+      std::cout << "Inter " << component << " Source:\n";
+      printRMat(
         origBuff.getAddr(component) + tuOffset,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Inter Prediction:\n";
-      printMat(
+      std::cout << "Inter " << component << " Prediction:\n";
+      printRMat(
         predBuff.getAddr(component) + tuOffset,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Inter Residual:\n";
-      printMat(
+      std::cout << "Inter " << component << " Residual:\n";
+      printRMat(
         pResidual,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Inter Decoded Coeff:\n";
-      printMat(
+      std::cout << "Inter Decoded " << component << " Coeff:\n";
+      printZMat(
         beforeCoeffs,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width  >> 1,
+        tu.getRect(component).height >> 1,
+        tu.getRect(component).width
       );
       std::cout << std::endl;
 
-      std::cout << "Inter Recoded Coeff:\n";
-      printMat(
+      std::cout << "Inter Recoded " << component << " Coeff:\n";
+      printZMat(
         pCoeff,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width  >> 1,
+        tu.getRect(component).height >> 1,
+        tu.getRect(component).width
       );
       std::cout << std::endl;
       std::getchar();
@@ -1099,44 +1134,44 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
         break;
       }
     }
-    if (!areCoeffsSame) {
-      std::cout << "Intra Source:\n";
-      printMat(
+    if (!areCoeffsSame && false) {
+      std::cout << "Intra " << component << " Source:\n";
+      printRMat(
         origBuff.getAddr(component) + tuOffset,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Intra Prediction:\n";
-      printMat(
+      std::cout << "Intra " << component << " Prediction:\n";
+      printRMat(
         predBuff.getAddr(component) + tuOffset,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Intra Residual:\n";
-      printMat(
+      std::cout << "Intra " << component << " Residual:\n";
+      printRMat(
         pResidual,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Intra Decoded Coeff:\n";
-      printMat(
+      std::cout << "Intra Decoded " << component << " Coeff:\n";
+      printRMat(
         beforeCoeffs,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
 
-      std::cout << "Intra Recoded Coeff:\n";
-      printMat(
+      std::cout << "Intra Recoded " << component << " Coeff:\n";
+      printRMat(
         pCoeff,
-        tu.getRect(component).width  >> (isChroma(component) ? 1 : 0),
-        tu.getRect(component).height >> (isChroma(component) ? 1 : 0)
+        tu.getRect(component).width,
+        tu.getRect(component).height
       );
       std::cout << std::endl;
       std::getchar();
@@ -1154,12 +1189,15 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     );
 
     // Update coding block flag
-    cu.setCbfSubParts(
-      areAllCoefficientsZero,
-      component,
-      tuPartIndex,
-      tu.GetTransformDepthTotalAdj(component)
-    );
+    // TODO: Fix this
+    if (areAllCoefficientsZero) {
+      cu.setCbfSubParts(
+        0,
+        component,
+        tuPartIndex,
+        tu.GetTransformDepthTotalAdj(component)
+      );
+    }
 
     // DEBUG: Check coefficient values and cbf
     UInt nnzCoeffs = TEncEntropy::countNonZeroCoeffs(pCoeff, numCoeffs);
