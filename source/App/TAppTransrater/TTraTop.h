@@ -181,6 +181,21 @@ protected:
 
 
   /**
+   * Coding block flag (cbf) management
+   */
+  // Marks the cbf for a given transform block to indicate that the block
+  //   contains non-zero coefficients
+  Void xMarkTuCbfTrue(TComTURecurse& tu, ComponentID component);
+
+  // Clears the cbf for a given transform block
+  Void xClearTuCbf(TComTURecurse& tu, ComponentID component);
+  
+  // Checks the cbf of a given transform block to determine if the block has
+  //   non-zero coefficients
+  Bool xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component);
+
+
+  /**
    * Misc
    */
   // Copies pixels corresponding to a given cu directly from one TComPicYuv to
