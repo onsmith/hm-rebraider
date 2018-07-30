@@ -645,14 +645,14 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComYuv&     resiBuff   = m_residualBuffer[cuDepth];
 
   if (!tu.ProcessComponentSection(component)) {
-    assert(0);
+    // TODO
     return;
   }
 
   UInt tuPartIndex = tu.GetAbsPartIdxTU();
   UInt uiTrMode = tu.GetTransformDepthRel();
 
-  Bool areAllDecodedCoefficientsZero =
+  Bool areDecodedCoefficientsAllZero =
     cu.getCbf(tuPartIndex, component, uiTrMode) == 0;
 
   // TODO: Commented this out because maybe we can't ever skip requant
@@ -663,7 +663,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       .getCrossComponentPredictionEnabledFlag();
 
   Bool canSkipTransQuant =
-    areAllDecodedCoefficientsZero &&
+    areDecodedCoefficientsAllZero &&
     (isLuma(component) || !isCrossComponentPredictionEnabled);
 
   if (canSkipTransQuant) {
@@ -697,8 +697,12 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         Pel*           pResidual = resiBuff.getAddr(component) + tuOffset;
         TCoeff*        pCoeff    = cu.getCoeff(component) + tu.getCoefficientOffset(component);
 
-  // Requantization
-  if (!areAllDecodedCoefficientsZero) {
+  // If decoded coefficients are all zero, reset cbf
+  if (areDecodedCoefficientsAllZero) {
+    xClearTuCbf(tu, component);
+
+  // Otherwise, requantize coefficients
+  } else {
     const QpParam qp(cu, component);
 
     // Transform and quantize
@@ -710,12 +714,11 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       stride,
       pCoeff,
 #if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component),
+      cu.getArlCoeff(component) + tu.getCoefficientOffset(component),
 #endif
       absSum,
       qp
     );
-    Bool areAllCoefficientsZero = (absSum == 0);
 
     // Inverse transform and quantize
     transQuant.invTransformNxN(
@@ -726,12 +729,6 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
-
-    // Update coding block flag
-    xClearTuCbf(tu, component);
-    if (!areAllCoefficientsZero) {
-      xMarkTuCbfTrue(tu, component);
-    }
   }
   
   // Cross-component prediction
@@ -899,15 +896,15 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
       if (channelIsLuma) {
         hasNonzeroCoeffs[ComponentID::COMPONENT_Y] =
           hasNonzeroCoeffs[ComponentID::COMPONENT_Y] ||
-          xHasNonzeroCoefficients(tu, ComponentID::COMPONENT_Y);
+          xHasNonzeroCoefficients(tuChild, ComponentID::COMPONENT_Y);
       } else {
-      hasNonzeroCoeffs[ComponentID::COMPONENT_Cr] =
-        hasNonzeroCoeffs[ComponentID::COMPONENT_Cr] ||
-        xHasNonzeroCoefficients(tu, ComponentID::COMPONENT_Cr);
+        hasNonzeroCoeffs[ComponentID::COMPONENT_Cr] =
+          hasNonzeroCoeffs[ComponentID::COMPONENT_Cr] ||
+          xHasNonzeroCoefficients(tuChild, ComponentID::COMPONENT_Cr);
 
-      hasNonzeroCoeffs[ComponentID::COMPONENT_Cb] =
-        hasNonzeroCoeffs[ComponentID::COMPONENT_Cb] ||
-        xHasNonzeroCoefficients(tu, ComponentID::COMPONENT_Cb);
+        hasNonzeroCoeffs[ComponentID::COMPONENT_Cb] =
+          hasNonzeroCoeffs[ComponentID::COMPONENT_Cb] ||
+          xHasNonzeroCoefficients(tuChild, ComponentID::COMPONENT_Cb);
       }
     } while (tuChild.nextSection(tu));
 
@@ -1037,22 +1034,23 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     );
   }
 
-  Bool areAllDecodedCoefficientsZero =
+  Bool areDecodedCoefficientsAllZero =
     cu.getCbf(tuPartIndex, component, tu.GetTransformDepthRel()) == 0;
-  Bool areAllRecodedCoefficientsZero =
-    areAllDecodedCoefficientsZero;
 
   // If source encoding had no residual coefficients, then the recoded block
   //   also should have no residual coefficients
-  if (areAllDecodedCoefficientsZero) {
+  if (areDecodedCoefficientsAllZero) {
     Pel* rowResi  = pResidual;
     UInt rowWidth = tuWidth * sizeof(Pel);
+
     for (UInt y = 0; y < tuHeight; y++) {
       memset(rowResi, 0, rowWidth);
       rowResi += cuStride;
     }
 
-  // Calculate and requantize the prediction error
+    xClearTuCbf(tu, component);
+
+  // Otherwise, requantize residual coefficients
   } else {
     // Calculate the prediction error (store in residual buffer)
     {
@@ -1087,12 +1085,11 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       cuStride,
       pCoeff,
 #if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component),
+      cu.getArlCoeff(component) + tu.getCoefficientOffset(component),
 #endif
       absSum,
       qp
     );
-    areAllRecodedCoefficientsZero = (absSum == 0);
 
     // Inverse transform and quantize
     transQuant.invTransformNxN(
@@ -1103,12 +1100,6 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
-  }
-
-  // Update coding block flag
-  xClearTuCbf(tu, component);
-  if (!areAllRecodedCoefficientsZero) {
-    xMarkTuCbfTrue(tu, component);
   }
 
   // Calculate reconstruction (prediction + residual) and copy back to picture
@@ -1235,10 +1226,10 @@ Void TTraTop::xResetScalingList(TComSlice& slice) {
  */
 Void TTraTop::xMarkTuCbfTrue(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu              = *tu.getCU();
+  const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
   const UInt        numPartsInTu    = tu.GetAbsPartIdxNumParts();
   const UInt        tuRelativeDepth = tu.GetTransformDepthRel();
   const UInt        cbfValue        = 0x1 << tuRelativeDepth;
-  const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
 
   cu.bitwiseOrCbfPartRange(
     cbfValue,
