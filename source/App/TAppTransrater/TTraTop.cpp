@@ -563,8 +563,10 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   // Requantize cu
   if (cu.isInter(0)) {
     xRequantizeInterCu(cu);
+    //xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
   } else if (cu.isIntra(0)) {
     xRequantizeIntraCu(cu);
+    //xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
   } else {
     assert(0);
   }
@@ -705,6 +707,11 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   } else {
     const QpParam qp(cu, component);
 
+    // DEBUG
+    UInt    numCoeffs = tuRect.width * tuRect.height;
+    TCoeff* tmpCoeffs = new TCoeff[numCoeffs];
+    memcpy(tmpCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
+
     // Transform and quantize
     TCoeff absSum = 0;
     transQuant.transformNxN(
@@ -729,6 +736,35 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
+
+    // DEBUG
+    Bool areCoeffsAllSame = true;
+    for (Int i = 0; i < numCoeffs; i++) {
+      if (pCoeff[i] != tmpCoeffs[i]) {
+        areCoeffsAllSame = false;
+        break;
+      }
+    }
+
+    // DEBUG
+    if (!areCoeffsAllSame) {
+      std::cout << "----- Coeff Mismatch -----\n";
+      std::cout << "Prediction:\tInter\n";
+      std::cout << "Component:\t" << component << "\n";
+      std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
+      std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
+      std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
+      std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
+      std::cout << std::endl;
+      std::cout << "Before:\n";
+      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
+      std::cout << "After:\n";
+      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
+      bool noop = true; // NOOP
+    }
+
+    // DEBUG
+    delete[] tmpCoeffs;
   }
   
   // Cross-component prediction
@@ -1076,6 +1112,11 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     transQuant.selectLambda(component);
 #endif
 
+    // DEBUG
+    UInt    numCoeffs = tuRect.width * tuRect.height;
+    TCoeff* tmpCoeffs = new TCoeff[numCoeffs];
+    memcpy(tmpCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
+
     // Transform and quantize
     TCoeff absSum = 0;
     transQuant.transformNxN(
@@ -1100,6 +1141,35 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
+
+    // DEBUG
+    Bool areCoeffsAllSame = true;
+    for (Int i = 0; i < numCoeffs; i++) {
+      if (pCoeff[i] != tmpCoeffs[i]) {
+        areCoeffsAllSame = false;
+        break;
+      }
+    }
+
+    // DEBUG
+    if (!areCoeffsAllSame) {
+      std::cout << "----- Coeff Mismatch -----\n";
+      std::cout << "Prediction:\tIntra\n";
+      std::cout << "Component:\t" << component << "\n";
+      std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
+      std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
+      std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
+      std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
+      std::cout << std::endl;
+      std::cout << "Before:\n";
+      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
+      std::cout << "After:\n";
+      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
+      bool noop = true; // NOOP
+    }
+
+    // DEBUG
+    delete[] tmpCoeffs;
   }
 
   // Calculate reconstruction (prediction + residual) and copy back to picture
