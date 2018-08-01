@@ -67,6 +67,11 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   // Set the slice scaling list
   xResetScalingList(encSlice);
 
+  // Set the reference pic list
+  if (!encSlice.getDependentSliceSegmentFlag()) {
+    encSlice.setRefPicList(*getListPic(), true);
+  }
+
   // Requantize the slice to achieve a target rate
   xRequantizeSlice(encSlice);
 
@@ -738,30 +743,6 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     );
 
     // DEBUG
-    std::cout << "----- Inter Mode -----\n";
-    std::cout << "Source:\n";
-    printBlock(
-      origBuff.getAddr(component) + tuOffset,
-      tuRect.width,
-      tuRect.height,
-      stride
-    );
-    std::cout << "Prediction:\n";
-    printBlock(
-      predBuff.getAddr(component) + tuOffset,
-      tuRect.width,
-      tuRect.height,
-      stride
-    );
-    std::cout << "Residual:\n";
-    printBlock(
-      resiBuff.getAddr(component) + tuOffset,
-      tuRect.width,
-      tuRect.height,
-      stride
-    );
-
-    // DEBUG
     Bool areCoeffsAllSame = true;
     for (Int i = 0; i < numCoeffs; i++) {
       if (pCoeff[i] != tmpCoeffs[i]) {
@@ -780,15 +761,37 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
       std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
       std::cout << std::endl;
-      std::cout << "Before:\n";
-      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::cout << "After:\n";
-      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
-      bool noop = true; // NOOP
-    }
 
-    // DEBUG
-    std::getchar();
+      std::cout << "Source:\n";
+      printBlock(
+        origBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        stride
+      );
+
+      std::cout << "Prediction:\n";
+      printBlock(
+        predBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        stride
+      );
+
+      std::cout << "Residual:\n";
+      printBlock(
+        resiBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        stride
+      );
+
+      std::cout << "Coeffs before:\n";
+      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
+      std::cout << "Coeffs after:\n";
+      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
+      std::getchar();
+    }
 
     // DEBUG
     delete[] tmpCoeffs;
@@ -1188,11 +1191,36 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
       std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
       std::cout << std::endl;
-      std::cout << "Before:\n";
+
+      std::cout << "Source:\n";
+      printBlock(
+        origBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        cuStride
+      );
+
+      std::cout << "Prediction:\n";
+      printBlock(
+        predBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        cuStride
+      );
+
+      std::cout << "Residual:\n";
+      printBlock(
+        resiBuff.getAddr(component) + tuOffset,
+        tuRect.width,
+        tuRect.height,
+        cuStride
+      );
+
+      std::cout << "Coeffs before:\n";
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::cout << "After:\n";
+      std::cout << "Coeffs after:\n";
       printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
-      bool noop = true; // NOOP
+      std::getchar();
     }
 
     // DEBUG

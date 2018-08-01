@@ -492,7 +492,8 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
   for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
     const TComCUMvField& srcObj = rhs.m_acCUMvField[i];
           TComCUMvField& dstObj =     m_acCUMvField[i];
-    dstObj.setNumPartition(srcObj.getNumPartition());
+    assert(srcObj.getNumPartition() == dstObj.getNumPartition());
+    //dstObj.setNumPartition(srcObj.getNumPartition());
     srcObj.copyTo(&dstObj, 0);
     *dstObj.getAMVPInfo() = *srcObj.getAMVPInfo();
   }
