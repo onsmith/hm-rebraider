@@ -738,6 +738,30 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     );
 
     // DEBUG
+    std::cout << "----- Inter Mode -----\n";
+    std::cout << "Source:\n";
+    printBlock(
+      origBuff.getAddr(component) + tuOffset,
+      tuRect.width,
+      tuRect.height,
+      stride
+    );
+    std::cout << "Prediction:\n";
+    printBlock(
+      predBuff.getAddr(component) + tuOffset,
+      tuRect.width,
+      tuRect.height,
+      stride
+    );
+    std::cout << "Residual:\n";
+    printBlock(
+      resiBuff.getAddr(component) + tuOffset,
+      tuRect.width,
+      tuRect.height,
+      stride
+    );
+
+    // DEBUG
     Bool areCoeffsAllSame = true;
     for (Int i = 0; i < numCoeffs; i++) {
       if (pCoeff[i] != tmpCoeffs[i]) {
@@ -762,6 +786,9 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
       bool noop = true; // NOOP
     }
+
+    // DEBUG
+    std::getchar();
 
     // DEBUG
     delete[] tmpCoeffs;
