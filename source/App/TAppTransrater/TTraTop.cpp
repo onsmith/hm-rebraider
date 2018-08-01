@@ -790,6 +790,13 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       std::cout << "Coeffs after:\n";
       printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
+
+      for (UInt i = 0; i < numCoeffs; i++) {
+        tmpCoeffs[i] -= pCoeff[i];
+      }
+
+      std::cout << "Coeff difference:\n";
+      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       std::getchar();
     }
 
@@ -1220,6 +1227,13 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       std::cout << "Coeffs after:\n";
       printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
+
+      for (UInt i = 0; i < numCoeffs; i++) {
+        tmpCoeffs[i] -= pCoeff[i];
+      }
+
+      std::cout << "Coeff difference:\n";
+      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       std::getchar();
     }
 

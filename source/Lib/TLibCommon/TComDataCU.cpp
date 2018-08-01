@@ -489,6 +489,7 @@ TComDataCU& TComDataCU::operator=(const TComDataCU& rhs) {
   m_uiNumPartition    = rhs.m_uiNumPartition;
 
   // TODO: Does this need null checks?
+  // TODO: Handle the case where the number of partitions changes
   for (UInt i = 0; i < NUM_REF_PIC_LIST_01; i++) {
     const TComCUMvField& srcObj = rhs.m_acCUMvField[i];
           TComCUMvField& dstObj =     m_acCUMvField[i];
