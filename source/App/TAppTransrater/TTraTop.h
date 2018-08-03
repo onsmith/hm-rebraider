@@ -91,6 +91,9 @@ public:
   // Transcode a decoded slice NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
 
+  // Find an existing TComPic by POC
+  TComPic* getPicByPoc(Int poc);
+
 
 protected:
   /**
@@ -118,7 +121,7 @@ protected:
   // Resolve a TComSlice into its corresponding encoder TComPic
   TComPic& xGetEncPicBySlice(const TComSlice& slice);
 
-  // Find an existing const TComPic by POC
+  // Find an existing TComPic by POC
   TComPic* xGetEncPicByPoc(Int poc);
   
   // Get an unused entry from the picture buffer

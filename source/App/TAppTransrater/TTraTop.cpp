@@ -254,7 +254,7 @@ Void TTraTop::xFinishPicture(TComPic& pic) {
   if (sps.getUseSAO()) {
     TComSampleAdaptiveOffset& saoProcessor = *getSAO();
     SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
-    //saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
+    saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
     saoProcessor.SAOProcess(&pic);
     saoProcessor.PCMLFDisableProcess(&pic);
   }
@@ -755,6 +755,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     if (!areCoeffsAllSame) {
       std::cout << "----- Coeff Mismatch -----\n";
       std::cout << "Prediction:\tInter\n";
+      std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
       std::cout << "Component:\t" << component << "\n";
       std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
       std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
@@ -797,7 +798,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Coeff difference:\n";
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::getchar();
+      //std::getchar();
     }
 
     // DEBUG
@@ -1192,6 +1193,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     if (!areCoeffsAllSame) {
       std::cout << "----- Coeff Mismatch -----\n";
       std::cout << "Prediction:\tIntra\n";
+      std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
       std::cout << "Component:\t" << component << "\n";
       std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
       std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
@@ -1234,7 +1236,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Coeff difference:\n";
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::getchar();
+      //std::getchar();
     }
 
     // DEBUG
@@ -1405,4 +1407,12 @@ Bool TTraTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) 
   const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
 
   return (cu.getCbf(tuPartIndex, component, tuRelativeDepth) != 0);
+}
+
+
+/**
+ * Find an existing TComPic by POC
+ */
+TComPic* TTraTop::getPicByPoc(Int poc) {
+  return xGetEncPicByPoc(poc);
 }
