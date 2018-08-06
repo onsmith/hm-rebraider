@@ -603,14 +603,15 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   getPredSearch()->motionCompensation(&cu, &predBuff);
 
   // Handle skipped cu
-  if (cu.isSkipped(0)) {
+  // TODO: Took this out because it doesn't seem to be in the decoder's code
+  /*if (cu.isSkipped(0)) {
     predBuff.copyToPicYuv(
       pic.getPicYuvRec(),
       cu.getCtuRsAddr(),
       cu.getZorderIdxInCtu()
     );
     return;
-  }
+  }*/
 
   // Obtain prediction error by computing (original - prediction)
   // Note: store prediction error in residual buffer
@@ -711,6 +712,11 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   // Otherwise, requantize coefficients
   } else {
     const QpParam qp(cu, component);
+
+    // TODO: Is this necessary for transcoding?
+#if RDOQ_CHROMA_LAMBDA
+    transQuant.selectLambda(component);
+#endif
 
     // DEBUG
     UInt    numCoeffs = tuRect.width * tuRect.height;
