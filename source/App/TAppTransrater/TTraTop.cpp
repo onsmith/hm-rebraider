@@ -699,11 +699,12 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     return;
   }
 
-  const TComRectangle& tuRect    = tu.getRect(component);
-  const Int            stride    = resiBuff.getStride(component);
-  const UInt           tuOffset  = tuRect.x0 + stride * tuRect.y0;
-        Pel*           pResidual = resiBuff.getAddr(component) + tuOffset;
-        TCoeff*        pCoeff    = cu.getCoeff(component) + tu.getCoefficientOffset(component);
+  const TComRectangle& tuRect        = tu.getRect(component);
+  const Int            cuStride      = resiBuff.getStride(component);
+  const UInt           tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
+  const UInt           tuCoeffOffset = tu.getCoefficientOffset(component);
+        Pel*           pResidual     = resiBuff.getAddr(component) + tuPelOffset;
+        TCoeff*        pCoeff        = cu.getCoeff(component) + tuCoeffOffset;
 
   // If decoded coefficients are all zero, reset cbf
   if (areDecodedCoefficientsAllZero) {
@@ -729,10 +730,10 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       tu,
       component,
       pResidual,
-      stride,
+      cuStride,
       pCoeff,
 #if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component) + tu.getCoefficientOffset(component),
+      cu.getArlCoeff(component) + tuCoeffOffset,
 #endif
       absSum,
       qp
@@ -743,7 +744,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       tu,
       component,
       pResidual,
-      stride,
+      cuStride,
       pCoeff,
       qp
     );
@@ -771,26 +772,26 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Source:\n";
       printBlock(
-        origBuff.getAddr(component) + tuOffset,
+        origBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
-        stride
+        cuStride
       );
 
       std::cout << "Prediction:\n";
       printBlock(
-        predBuff.getAddr(component) + tuOffset,
+        predBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
-        stride
+        cuStride
       );
 
       std::cout << "Residual:\n";
       printBlock(
-        resiBuff.getAddr(component) + tuOffset,
+        resiBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
-        stride
+        cuStride
       );
 
       std::cout << "Coeffs before:\n";
@@ -827,7 +828,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
   if (shouldApplyCrossComponentPrediction) {
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
-    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
+    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuPelOffset;
 
     transQuant.crossComponentPrediction(
       tu,            //       TComTU&       rTu,
@@ -838,8 +839,8 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       tuRect.width,  // const Int           width,
       tuRect.height, // const Int           height,
       strideLuma,    // const Int           strideL,
-      stride,        // const Int           strideC,
-      stride,        // const Int           strideT,
+      cuStride,      // const Int           strideC,
+      cuStride,      // const Int           strideT,
       true           // const Bool          reverse
     );
   }
@@ -1049,10 +1050,10 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   TComYuv& resiBuff = m_residualBuffer[cuDepth];
   TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
   
-  const UInt tuPartIndex  = tu.GetAbsPartIdxTU();
-  const UInt intraMode    = xGetTuPredMode(tu, component);
-  const UInt cuStride     = recoBuff.getStride(component);
-  const UInt tuOffset     = tuRect.x0 + cuStride * tuRect.y0;
+  const UInt tuPartIndex   = tu.GetAbsPartIdxTU();
+  const UInt cuStride      = recoBuff.getStride(component);
+  const UInt tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
+  const UInt tuCoeffOffset = tu.getCoefficientOffset(component);
 
   // Get direct pointers to the buffered pixel values
   Pel* pOriginal    = origBuff.getAddr(component, tuPartIndex);
@@ -1061,7 +1062,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   Pel* pReconstruct = recoBuff.getAddr(component, tuPartIndex);
 
   // Get pointer to coefficient buffer
-  TCoeff* pCoeff = cu.getCoeff(component) + tu.getCoefficientOffset(component);
+  TCoeff* pCoeff = cu.getCoeff(component) + tuCoeffOffset;
 
   TComPrediction& predictor  = *getPredSearch();
   TComTrQuant&    transQuant = *getTrQuant();
@@ -1079,7 +1080,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   // Obtain prediction
   predictor.predIntraAng(
     component,
-    intraMode,
+    xGetTuPredMode(tu, component),
     nullptr,
     0,
     pPrediction,
@@ -1097,7 +1098,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
   if (shouldApplyCrossComponentPrediction) {
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
-    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuOffset;
+    const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuPelOffset;
 
     transQuant.crossComponentPrediction(
       tu,            //       TComTU&       rTu,
@@ -1170,7 +1171,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       cuStride,
       pCoeff,
 #if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component) + tu.getCoefficientOffset(component),
+      cu.getArlCoeff(component) + tuCoeffOffset,
 #endif
       absSum,
       qp
@@ -1209,7 +1210,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Source:\n";
       printBlock(
-        origBuff.getAddr(component) + tuOffset,
+        origBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
         cuStride
@@ -1217,7 +1218,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Prediction:\n";
       printBlock(
-        predBuff.getAddr(component) + tuOffset,
+        predBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
         cuStride
@@ -1225,7 +1226,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
       std::cout << "Residual:\n";
       printBlock(
-        resiBuff.getAddr(component) + tuOffset,
+        resiBuff.getAddr(component) + tuPelOffset,
         tuRect.width,
         tuRect.height,
         cuStride
