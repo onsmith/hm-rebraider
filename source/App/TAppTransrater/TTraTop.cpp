@@ -700,6 +700,8 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   }
 
   const TComRectangle& tuRect        = tu.getRect(component);
+  const UInt           tuWidth       = tuRect.width;
+  const UInt           tuHeight      = tuRect.height;
   const Int            cuStride      = resiBuff.getStride(component);
   const UInt           tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
   const UInt           tuCoeffOffset = tu.getCoefficientOffset(component);
@@ -708,6 +710,14 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
   // If decoded coefficients are all zero, reset cbf
   if (areDecodedCoefficientsAllZero) {
+    Pel* rowResi  = pResidual;
+    UInt rowWidth = tuWidth * sizeof(Pel);
+
+    for (UInt y = 0; y < tuHeight; y++) {
+      memset(rowResi, 0, rowWidth);
+      rowResi += cuStride;
+    }
+
     xClearTuCbf(tu, component);
 
   // Otherwise, requantize coefficients
@@ -759,7 +769,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     }
 
     // DEBUG
-    if (!areCoeffsAllSame) {
+    /*if (!areCoeffsAllSame) {
       std::cout << "----- Coeff Mismatch -----\n";
       std::cout << "Prediction:\tInter\n";
       std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
@@ -806,7 +816,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       std::cout << "Coeff difference:\n";
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       //std::getchar();
-    }
+    }*/
 
     // DEBUG
     delete[] tmpCoeffs;
@@ -1197,7 +1207,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     }
 
     // DEBUG
-    if (!areCoeffsAllSame) {
+    /*if (!areCoeffsAllSame) {
       std::cout << "----- Coeff Mismatch -----\n";
       std::cout << "Prediction:\tIntra\n";
       std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
@@ -1244,7 +1254,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       std::cout << "Coeff difference:\n";
       printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
       //std::getchar();
-    }
+    }*/
 
     // DEBUG
     delete[] tmpCoeffs;
