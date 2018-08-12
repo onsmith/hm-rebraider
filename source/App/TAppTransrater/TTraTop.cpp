@@ -708,7 +708,8 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
         Pel*           pResidual     = resiBuff.getAddr(component) + tuPelOffset;
         TCoeff*        pCoeff        = cu.getCoeff(component) + tuCoeffOffset;
 
-  // If decoded coefficients are all zero, reset cbf
+  // If the source encoding had no residual coefficients, then the recoded block
+  //   also should have no residual coefficients
   if (areDecodedCoefficientsAllZero) {
     Pel* rowResi  = pResidual;
     UInt rowWidth = tuWidth * sizeof(Pel);
@@ -720,7 +721,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 
     xClearTuCbf(tu, component);
 
-  // Otherwise, requantize coefficients
+  // Otherwise, requantize residual coefficients
   } else {
     const QpParam qp(cu, component);
 
@@ -728,11 +729,6 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
 #if RDOQ_CHROMA_LAMBDA
     transQuant.selectLambda(component);
 #endif
-
-    // DEBUG
-    UInt    numCoeffs = tuRect.width * tuRect.height;
-    TCoeff* tmpCoeffs = new TCoeff[numCoeffs];
-    memcpy(tmpCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
 
     // Transform and quantize
     TCoeff absSum = 0;
@@ -758,68 +754,6 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
-
-    // DEBUG
-    Bool areCoeffsAllSame = true;
-    for (Int i = 0; i < numCoeffs; i++) {
-      if (pCoeff[i] != tmpCoeffs[i]) {
-        areCoeffsAllSame = false;
-        break;
-      }
-    }
-
-    // DEBUG
-    /*if (!areCoeffsAllSame) {
-      std::cout << "----- Coeff Mismatch -----\n";
-      std::cout << "Prediction:\tInter\n";
-      std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
-      std::cout << "Component:\t" << component << "\n";
-      std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
-      std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
-      std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
-      std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
-      std::cout << std::endl;
-
-      std::cout << "Source:\n";
-      printBlock(
-        origBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Prediction:\n";
-      printBlock(
-        predBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Residual:\n";
-      printBlock(
-        resiBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Coeffs before:\n";
-      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::cout << "Coeffs after:\n";
-      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
-
-      for (UInt i = 0; i < numCoeffs; i++) {
-        tmpCoeffs[i] -= pCoeff[i];
-      }
-
-      std::cout << "Coeff difference:\n";
-      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      //std::getchar();
-    }*/
-
-    // DEBUG
-    delete[] tmpCoeffs;
   }
   
   // Cross-component prediction
@@ -1128,7 +1062,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   Bool areDecodedCoefficientsAllZero =
     cu.getCbf(tuPartIndex, component, tu.GetTransformDepthRel()) == 0;
 
-  // If source encoding had no residual coefficients, then the recoded block
+  // If the source encoding had no residual coefficients, then the recoded block
   //   also should have no residual coefficients
   if (areDecodedCoefficientsAllZero) {
     Pel* rowResi  = pResidual;
@@ -1167,11 +1101,6 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     transQuant.selectLambda(component);
 #endif
 
-    // DEBUG
-    UInt    numCoeffs = tuRect.width * tuRect.height;
-    TCoeff* tmpCoeffs = new TCoeff[numCoeffs];
-    memcpy(tmpCoeffs, pCoeff, numCoeffs * sizeof(TCoeff));
-
     // Transform and quantize
     TCoeff absSum = 0;
     transQuant.transformNxN(
@@ -1196,68 +1125,6 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       pCoeff,
       qp
     );
-
-    // DEBUG
-    Bool areCoeffsAllSame = true;
-    for (Int i = 0; i < numCoeffs; i++) {
-      if (pCoeff[i] != tmpCoeffs[i]) {
-        areCoeffsAllSame = false;
-        break;
-      }
-    }
-
-    // DEBUG
-    /*if (!areCoeffsAllSame) {
-      std::cout << "----- Coeff Mismatch -----\n";
-      std::cout << "Prediction:\tIntra\n";
-      std::cout << "POC:\t\t" << cu.getPic()->getPOC() << "\n";
-      std::cout << "Component:\t" << component << "\n";
-      std::cout << "CU Depth:\t" << static_cast<int>(cuDepth) << "\n";
-      std::cout << "CU dimensions:\t" << static_cast<int>(cu.getWidth(0)) << "x" << static_cast<int>(cu.getHeight(0)) << "\n";
-      std::cout << "TU Depth:\t" << tu.GetTransformDepthRel() << "\n";
-      std::cout << "TU dimensions:\t" << tuRect.width << "x" << tuRect.height << "\n";
-      std::cout << std::endl;
-
-      std::cout << "Source:\n";
-      printBlock(
-        origBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Prediction:\n";
-      printBlock(
-        predBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Residual:\n";
-      printBlock(
-        resiBuff.getAddr(component) + tuPelOffset,
-        tuRect.width,
-        tuRect.height,
-        cuStride
-      );
-
-      std::cout << "Coeffs before:\n";
-      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      std::cout << "Coeffs after:\n";
-      printBlock(pCoeff, tuRect.width, tuRect.height, tuRect.width);
-
-      for (UInt i = 0; i < numCoeffs; i++) {
-        tmpCoeffs[i] -= pCoeff[i];
-      }
-
-      std::cout << "Coeff difference:\n";
-      printBlock(tmpCoeffs, tuRect.width, tuRect.height, tuRect.width);
-      //std::getchar();
-    }*/
-
-    // DEBUG
-    delete[] tmpCoeffs;
   }
 
   // Calculate reconstruction (prediction + residual) and copy back to picture
