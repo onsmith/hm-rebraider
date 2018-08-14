@@ -655,8 +655,9 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComYuv&     predBuff   = m_predictionBuffer[cuDepth];
   TComYuv&     resiBuff   = m_residualBuffer[cuDepth];
 
+  // Skip block if it spans zero pixels
+  // TODO: This seems hacky, why is this necessary?
   if (!tu.ProcessComponentSection(component)) {
-    // TODO
     return;
   }
 
@@ -678,11 +679,10 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     (isLuma(component) || !isCrossComponentPredictionEnabled);
 
   if (canSkipTransQuant) {
-    // TODO: Check this
     return;
   }*/
 
-  // Recurse through tus
+  // Traverse residual quadtree via recursion
   if (uiTrMode != cu.getTransformIdx(tuPartIndex)) {
     Bool hasNonzeroCoefficients = false;
     TComTURecurse tuChild(tu, false);
