@@ -1776,7 +1776,7 @@ Void TDecCavlc::parseDeltaQP( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth 
 {
   Int  iDQp;
 
-#if RExt__DECODER_DEBUG_BIT_STATISTICS
+#if RExt__DECODER_DEBUG_BIT_STATISTICS || ENC_DEC_TRACE
   READ_SVLC(iDQp, "delta_qp");
 #else
   xReadSvlc( iDQp );

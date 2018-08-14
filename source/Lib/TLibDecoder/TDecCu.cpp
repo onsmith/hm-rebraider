@@ -196,6 +196,10 @@ Void TDecCu::xDecodeCU( TComDataCU*const pcCU, const UInt uiAbsPartIdx, const UI
   UInt uiCurNumParts    = pcPic->getNumPartitionsInCtu() >> (uiDepth<<1);
   UInt uiQNumParts      = uiCurNumParts>>2;
 
+  g_nSymbolCounter =
+    pcPic->getPOC()      * 100000000LL +
+    pcCU->getCtuRsAddr() * 100000LL +
+    uiAbsPartIdx         * 100LL;
 
   Bool bBoundary = false;
   UInt uiLPelX   = pcCU->getCUPelX() + g_auiRasterToPelX[ g_auiZscanToRaster[uiAbsPartIdx] ];

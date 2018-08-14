@@ -576,7 +576,7 @@ FILE*  g_hTrace = NULL; // Set to NULL to open up a file. Set to stdout to use t
 const Bool g_bEncDecTraceEnable  = true;
 const Bool g_bEncDecTraceDisable = false;
 Bool   g_HLSTraceEnable = true;
-Bool   g_bJustDoIt = false;
+Bool   g_bJustDoIt = true;
 UInt64 g_nSymbolCounter = 0;
 #endif
 // ====================================================================================================================

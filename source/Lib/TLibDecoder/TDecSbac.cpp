@@ -519,9 +519,15 @@ Void TDecSbac::parseSplitFlag     ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt ui
 #endif
 
   UInt uiSymbol;
-  m_pcTDecBinIf->decodeBin( uiSymbol, m_cCUSplitFlagSCModel.get( 0, 0, pcCU->getCtxSplitFlag( uiAbsPartIdx, uiDepth ) ) RExt__DECODER_DEBUG_BIT_STATISTICS_PASS_OPT_ARG(ctype) );
+  UInt uiCtxSplit = pcCU->getCtxSplitFlag( uiAbsPartIdx, uiDepth );
+  m_pcTDecBinIf->decodeBin( uiSymbol, m_cCUSplitFlagSCModel.get( 0, 0, uiCtxSplit ) RExt__DECODER_DEBUG_BIT_STATISTICS_PASS_OPT_ARG(ctype) );
   DTRACE_CABAC_VL( g_nSymbolCounter++ )
-  DTRACE_CABAC_T( "\tSplitFlag\n" )
+  DTRACE_CABAC_T( "\tSplitFlag" );
+  DTRACE_CABAC_T( "\tuiCtxSplit: ");
+  DTRACE_CABAC_V( uiCtxSplit );
+  DTRACE_CABAC_T( "\tuiSymbol: ");
+  DTRACE_CABAC_V( uiSymbol );
+  DTRACE_CABAC_T( "\n");
   pcCU->setDepthSubParts( uiDepth + uiSymbol, uiAbsPartIdx );
 
   return;

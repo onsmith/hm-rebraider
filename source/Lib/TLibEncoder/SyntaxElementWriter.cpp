@@ -48,7 +48,7 @@ Void  SyntaxElementWriter::xWriteCodeTr (UInt value, UInt  length, const TChar *
   xWriteCode (value,length);
   if( g_HLSTraceEnable )
   {
-    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+    //fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
     if( length<10 )
     {
       fprintf( g_hTrace, "%-50s u(%d)  : %d\n", pSymbolName, length, value );
@@ -65,7 +65,7 @@ Void  SyntaxElementWriter::xWriteUvlcTr (UInt value, const TChar *pSymbolName)
   xWriteUvlc (value);
   if( g_HLSTraceEnable )
   {
-    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+    //fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
     fprintf( g_hTrace, "%-50s ue(v) : %d\n", pSymbolName, value );
   }
 }
@@ -75,7 +75,7 @@ Void  SyntaxElementWriter::xWriteSvlcTr (Int value, const TChar *pSymbolName)
   xWriteSvlc(value);
   if( g_HLSTraceEnable )
   {
-    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+    //fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
     fprintf( g_hTrace, "%-50s se(v) : %d\n", pSymbolName, value );
   }
 }
@@ -85,7 +85,7 @@ Void  SyntaxElementWriter::xWriteFlagTr(UInt value, const TChar *pSymbolName)
   xWriteFlag(value);
   if( g_HLSTraceEnable )
   {
-    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+    //fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
     fprintf( g_hTrace, "%-50s u(1)  : %d\n", pSymbolName, value );
   }
 }
