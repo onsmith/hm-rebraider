@@ -199,16 +199,6 @@ protected:
 
 
   /**
-   * Residual quadtree management
-   */
-  // Traverses the residual quadtree, pruning unnecessary nodes
-  Void xPruneInterResidualQuadtree(TComTURecurse& tu);
-
-  // Determines if a residual quadtree split is implied for the given node
-  Bool xIsResidualQuadtreeSplitImplied(TComTURecurse& tu);
-
-
-  /**
    * Misc
    */
   // Copies pixels corresponding to a given cu directly from one TComPicYuv to

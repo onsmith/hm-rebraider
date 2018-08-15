@@ -623,9 +623,6 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
     xRequantizeInterTu(tu, static_cast<ComponentID>(c));
   }
 
-  // Prune unnecessary empty residual quadtree nodes
-  //xPruneInterResidualQuadtree(tu);
-
   // Degrade merge mode cus into skip mode cus
   Bool shouldDegradeMergeToSkip =
     !cu.isSkipped(0) &&
@@ -1312,66 +1309,4 @@ Bool TTraTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) 
  */
 TComPic* TTraTop::getPicByPoc(Int poc) {
   return xGetEncPicByPoc(poc);
-}
-
-
-/**
- * Determines if a residual quadtree split is implied for the given node
- */
-Bool TTraTop::xIsResidualQuadtreeSplitImplied(TComTURecurse& tu) {
-        TComDataCU& cu              = *tu.getCU();
-        UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
-  const TComSPS&    sps             = *cu.getSlice()->getSPS();
-        UInt        tuTotalDepth    = tu.GetTransformDepthTotal();
-  const UInt        tuLog2LumaWidth = tu.GetLog2LumaTrSize();
-
-  if (cu.isIntra(tuPartIndex) && cu.getPartitionSize(tuPartIndex) == SIZE_NxN && tuTotalDepth == cu.getDepth(tuPartIndex)) {
-    return true;
-  } else if (sps.getQuadtreeTUMaxDepthInter() == 1 && cu.isInter(tuPartIndex) && cu.getPartitionSize(tuPartIndex) != SIZE_2Nx2N && tuTotalDepth == cu.getDepth(tuPartIndex)) {
-    return true;
-  } else if (tuLog2LumaWidth > sps.getQuadtreeTULog2MaxSize()) {
-    return true;
-  }  else if (tuLog2LumaWidth == sps.getQuadtreeTULog2MinSize()) {
-    return true;
-  } else if (tuLog2LumaWidth == cu.getQuadtreeTULog2MinSizeInCU(tuPartIndex)) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-
-/**
- * Traverses the residual quadtree, pruning unnecessary nodes
- */
-Void TTraTop::xPruneInterResidualQuadtree(TComTURecurse& tu) {
-  TComDataCU& cu             = *tu.getCU();
-  UInt        tuPartIndex    = tu.GetAbsPartIdxTU();
-  UInt        tuCurrentDepth = tu.GetTransformDepthRel();
-
-  const UInt numValidComponents = cu.getPic()->getNumberValidComponents();
-  const Bool hasNonzeroCoefficients = (
-    cu.getCbf(tuPartIndex, COMPONENT_Y, tuCurrentDepth) > 0 ||
-    (numValidComponents > COMPONENT_Cb &&
-      cu.getCbf(tuPartIndex, COMPONENT_Cb, tuCurrentDepth) > 0) ||
-    (numValidComponents > COMPONENT_Cr &&
-      cu.getCbf(tuPartIndex, COMPONENT_Cr, tuCurrentDepth) > 0)
-  );
-
-  // The residual quadtree should end at this level
-  if (!xIsResidualQuadtreeSplitImplied(tu) && !hasNonzeroCoefficients) {
-    cu.setTrIdxSubParts(
-      tuCurrentDepth,
-      tuPartIndex,
-      tu.GetTransformDepthTotal()
-    );
-  }
-
-  // Recurse
-  if (tuCurrentDepth < cu.getTransformIdx(tuPartIndex)) {
-    TComTURecurse tuChild(tu, false);
-    do {
-      xPruneInterResidualQuadtree(tuChild);
-    } while (tuChild.nextSection(tu));
-  }
 }
