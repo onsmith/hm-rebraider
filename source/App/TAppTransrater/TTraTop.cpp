@@ -626,6 +626,16 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   // Prune unnecessary empty residual quadtree nodes
   //xPruneInterResidualQuadtree(tu);
 
+  // Degrade merge mode cus into skip mode cus
+  Bool shouldDegradeMergeToSkip =
+    !cu.isSkipped(0) &&
+    cu.getMergeFlag(0) &&
+    cu.getPartitionSize(0) == SIZE_2Nx2N &&
+    cu.getQtRootCbf(0) == 0;
+  if (shouldDegradeMergeToSkip) {
+    cu.setSkipFlagSubParts(true, 0, cuDepth);
+  }
+
   // Obtain reconstructed signal by computing (prediction + residual)
   recoBuff.addClip(
     &predBuff,
