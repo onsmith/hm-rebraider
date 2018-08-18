@@ -162,6 +162,10 @@ protected:
   // Recursively requantizes an inter-predicted tu
   Void xRequantizeInterTu(TComTURecurse& tu, ComponentID component);
 
+  // Detects the case where requantization removed all residual for an
+  //   inter-predicted cu coded in merge mode and adjusts the cu to skip mode
+  Void xDetectSkipModeDegradation(TComDataCU& cu) const;
+
 
   /**
    * Intra-predicted requantization

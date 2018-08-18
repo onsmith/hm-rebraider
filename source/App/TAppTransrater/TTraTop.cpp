@@ -575,10 +575,8 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   // Requantize cu
   if (cu.isInter(0)) {
     xRequantizeInterCu(cu);
-    //xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
   } else if (cu.isIntra(0)) {
     xRequantizeIntraCu(cu);
-    //xCopyCuPixels(cu, *pic.getPicYuvOrg(), *pic.getPicYuvRec());
   } else {
     assert(0);
   }
@@ -609,17 +607,6 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   // Obtain prediction by applying motion vectors
   getPredSearch()->motionCompensation(&cu, &predBuff);
 
-  // Handle skipped cu
-  // TODO: Took this out because it doesn't seem to be in the decoder's code
-  /*if (cu.isSkipped(0)) {
-    predBuff.copyToPicYuv(
-      pic.getPicYuvRec(),
-      cu.getCtuRsAddr(),
-      cu.getZorderIdxInCtu()
-    );
-    return;
-  }*/
-
   // Obtain prediction error by computing (original - prediction)
   // Note: store prediction error in residual buffer
   resiBuff.subtract(&origBuff, &predBuff, 0, cuWidth);
@@ -631,14 +618,8 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   }
 
   // Degrade merge mode cus into skip mode cus
-  Bool shouldDegradeMergeToSkip =
-    !cu.isSkipped(0) &&
-    cu.getMergeFlag(0) &&
-    cu.getPartitionSize(0) == SIZE_2Nx2N &&
-    cu.getQtRootCbf(0) == 0;
-  if (shouldDegradeMergeToSkip) {
-    cu.setSkipFlagSubParts(true, 0, cuDepth);
-  }
+  xDetectSkipModeDegradation(cu);
+  
 
   // Obtain reconstructed signal by computing (prediction + residual)
   recoBuff.addClip(
@@ -1316,4 +1297,21 @@ Bool TTraTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) 
  */
 TComPic* TTraTop::getPicByPoc(Int poc) {
   return xGetEncPicByPoc(poc);
+}
+
+
+/**
+ * Detects the case where requantization removed all residual for an
+ *   inter-predicted cu coded in merge mode and adjusts the cu to skip mode
+ */
+Void TTraTop::xDetectSkipModeDegradation(TComDataCU& cu) const {
+  Bool shouldDegradeMergeToSkip =
+    !cu.getSkipFlag(0) &&
+    cu.getMergeFlag(0) &&
+    cu.getPartitionSize(0) == SIZE_2Nx2N &&
+    cu.getQtRootCbf(0) == 0;
+
+  if (shouldDegradeMergeToSkip) {
+    cu.setSkipFlagSubParts(true, 0, cu.getDepth(0));
+  }
 }
