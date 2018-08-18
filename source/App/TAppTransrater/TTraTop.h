@@ -61,7 +61,7 @@ class TTraTop : public TEncTop {
 protected:
   // Buffer of cu data structures to be reused during ctu recursion
   std::vector<TComDataCU> m_cuBuffer;
-  
+
   // Original, prediction, residual, and reconstruction buffers
   std::vector<TComYuv> m_originalBuffer;
   std::vector<TComYuv> m_predictionBuffer;
@@ -75,19 +75,19 @@ public:
 
   // Virtual destructor
   virtual ~TTraTop() = default;
-  
+
   // Transcode a NAL unit without decoding
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
-  
+
   // Transcode a decoded VPS NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps);
-  
+
   // Transcode a decoded SPS NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps);
-  
+
   // Transcode a decoded PPS NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps);
-  
+
   // Transcode a decoded slice NAL unit
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice);
 
@@ -101,7 +101,7 @@ protected:
    */
   // Copy a TComSlice to a TComPic, returning a reference to the new TComSlice
   TComSlice& xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic);
-  
+
   // Set up an encoder TComPic by copying relevant configuration from a
   //   corresponding decoded TComPic
   Void xCopyDecPic(const TComPic& srcPic, TComPic& dstPic);
@@ -123,7 +123,7 @@ protected:
 
   // Find an existing TComPic by POC
   TComPic* xGetEncPicByPoc(Int poc);
-  
+
   // Get an unused entry from the picture buffer
   TComPic*& xGetUnusedEntry();
 
@@ -158,12 +158,12 @@ protected:
    */
   // Requantizes an inter-predicted cu
   Void xRequantizeInterCu(TComDataCU& cu);
-  
-  // Recursively requantizes an inter-predicted tu
-  Void xRequantizeInterTu(TComTURecurse& tu, ComponentID component);
 
-  // Detects the case where requantization removed all residual for an
-  //   inter-predicted cu coded in merge mode and adjusts the cu to skip mode
+  // Recursively requantizes an inter-predicted transform block
+  Void xRequantizeInterTb(TComTURecurse& tu, ComponentID component);
+
+  // Detects the case where requantization removed all residual coefficients for
+  //   an inter-predicted cu coded in merge mode and adjusts the cu to skip mode
   Void xDetectSkipModeDegradation(TComDataCU& cu) const;
 
 
@@ -172,19 +172,19 @@ protected:
    */
   // Requantizes an intra-predicted cu
   Void xRequantizeIntraCu(TComDataCU& cu);
-  
+
   // Recursively requantizes an intra-predicted tu channel type
   Void xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType);
 
-  // Recursively requantizes an intra-predicted tu block
-  Void xRequantizeIntraTu(TComTURecurse& tu, ComponentID component);
+  // Recursively requantizes an intra-predicted transform block
+  Void xRequantizeIntraTb(TComTURecurse& tu, ComponentID component);
 
-  // Calculates the prediction mode for a given tu block
-  UInt xGetTuPredMode(TComTURecurse& tu, ComponentID component) const;
+  // Calculates the intra prediction direction for a given transform block
+  UInt xGetTbIntraDirection(TComTURecurse& tu, ComponentID component) const;
 
   // Determines if the intra prediction source samples for a given tu block
   //   should be filtered before used in intra prediction
-  Bool xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID component) const;
+  Bool xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID component) const;
 
 
   /**
@@ -192,11 +192,11 @@ protected:
    */
   // Marks the cbf for a given transform block to indicate that the block
   //   contains non-zero coefficients
-  Void xMarkTuCbfTrue(TComTURecurse& tu, ComponentID component);
+  Void xMarkTbCbfTrue(TComTURecurse& tu, ComponentID component);
 
   // Clears the cbf for a given transform block
-  Void xClearTuCbf(TComTURecurse& tu, ComponentID component);
-  
+  Void xClearTbCbf(TComTURecurse& tu, ComponentID component);
+
   // Checks the cbf of a given transform block to determine if the block has
   //   non-zero coefficients
   Bool xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component);
@@ -208,9 +208,12 @@ protected:
   // Copies pixels corresponding to a given cu directly from one TComPicYuv to
   //   another
   Void xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst);
-  
-  // Resets the scaling list on the transquant object for a given slice
+
+  // Resets the scaling list on the transform quantizer object for a given slice
   Void xResetScalingList(TComSlice& slice);
+
+  // Applies transform and quantization to prediction error
+  Void xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component, TComYuv& residualBuffer);
 };
 
 

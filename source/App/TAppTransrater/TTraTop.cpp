@@ -614,12 +614,11 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   // Obtain real residual by transforming and quantizing prediction error
   TComTURecurse tu(&cu, 0, cuDepth);
   for (UInt c = 0; c < pic.getNumberValidComponents(); c++) {
-    xRequantizeInterTu(tu, static_cast<ComponentID>(c));
+    xRequantizeInterTb(tu, static_cast<ComponentID>(c));
   }
 
   // Degrade merge mode cus into skip mode cus
   xDetectSkipModeDegradation(cu);
-  
 
   // Obtain reconstructed signal by computing (prediction + residual)
   recoBuff.addClip(
@@ -640,9 +639,9 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 
 
 /**
- * Recursively requantizes an inter-predicted tu
+ * Recursively requantizes an inter-predicted transform block
  */
-Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
+Void TTraTop::xRequantizeInterTb(TComTURecurse& tu, ComponentID component) {
   TComTrQuant& transQuant = *getTrQuant();
   TComDataCU&  cu         = *tu.getCU();
   UChar        cuDepth    = cu.getDepth(0);
@@ -650,8 +649,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
   TComYuv&     predBuff   = m_predictionBuffer[cuDepth];
   TComYuv&     resiBuff   = m_residualBuffer[cuDepth];
 
-  // Skip block if it spans zero pixels
-  // TODO: This seems hacky, why is this necessary?
+  // Recursion base case: transform block spans zero pixels
   if (!tu.ProcessComponentSection(component)) {
     return;
   }
@@ -683,7 +681,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     TComTURecurse tuChild(tu, false);
 
     do {
-      xRequantizeInterTu(tuChild, component);
+      xRequantizeInterTb(tuChild, component);
 
       hasNonzeroCoefficients =
         hasNonzeroCoefficients ||
@@ -691,7 +689,7 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
     } while (tuChild.nextSection(tu));
 
     if (hasNonzeroCoefficients) {
-      xMarkTuCbfTrue(tu, component);
+      xMarkTbCbfTrue(tu, component);
     }
 
     return;
@@ -717,41 +715,11 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
       rowResi += cuStride;
     }
 
-    xClearTuCbf(tu, component);
+    xClearTbCbf(tu, component);
 
   // Otherwise, requantize residual coefficients
   } else {
-    const QpParam qp(cu, component);
-
-    // TODO: Is this necessary for transcoding?
-#if RDOQ_CHROMA_LAMBDA
-    transQuant.selectLambda(component);
-#endif
-
-    // Transform and quantize
-    TCoeff absSum = 0;
-    transQuant.transformNxN(
-      tu,
-      component,
-      pResidual,
-      cuStride,
-      pCoeff,
-#if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component) + tuCoeffOffset,
-#endif
-      absSum,
-      qp
-    );
-
-    // Inverse transform and quantize
-    transQuant.invTransformNxN(
-      tu,
-      component,
-      pResidual,
-      cuStride,
-      pCoeff,
-      qp
-    );
+    xApplyResidualTransQuant(tu, component, resiBuff);
   }
   
   // Cross-component prediction
@@ -769,6 +737,9 @@ Void TTraTop::xRequantizeInterTu(TComTURecurse& tu, ComponentID component) {
    );
 
   if (shouldApplyCrossComponentPrediction) {
+    // TODO: Enable cross component prediction
+    assert(0);
+
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
     const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuPelOffset;
 
@@ -854,7 +825,7 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
     } while (tu.nextSection(parentTu));
 
     if (lumaHasNonzeroCoefficients) {
-      xMarkTuCbfTrue(parentTu, ComponentID::COMPONENT_Y);
+      xMarkTbCbfTrue(parentTu, ComponentID::COMPONENT_Y);
     }
   }
 
@@ -887,11 +858,11 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
     } while (tu.nextSection(parentTu));
 
     if (hasNonzeroCoeffs[ComponentID::COMPONENT_Cr]) {
-      xMarkTuCbfTrue(parentTu, ComponentID::COMPONENT_Cr);
+      xMarkTbCbfTrue(parentTu, ComponentID::COMPONENT_Cr);
     }
 
     if (hasNonzeroCoeffs[ComponentID::COMPONENT_Cb]) {
-      xMarkTuCbfTrue(parentTu, ComponentID::COMPONENT_Cb);
+      xMarkTbCbfTrue(parentTu, ComponentID::COMPONENT_Cb);
     }
   }
 }
@@ -933,7 +904,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
 
     for (UInt c = 0; c < ComponentID::MAX_NUM_COMPONENT; c++) {
       if (hasNonzeroCoeffs[c]) {
-        xMarkTuCbfTrue(tu, static_cast<ComponentID>(c));
+        xMarkTbCbfTrue(tu, static_cast<ComponentID>(c));
       }
     }
 
@@ -941,21 +912,21 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
   }
 
   if (channelIsLuma) {
-    xRequantizeIntraTu(tu, COMPONENT_Y);
+    xRequantizeIntraTb(tu, COMPONENT_Y);
   } else {
     const UInt numValidComp = getNumberValidComponents(tu.GetChromaFormat());
     for (UInt c = COMPONENT_Cb; c < numValidComp; c++) {
-      xRequantizeIntraTu(tu, static_cast<ComponentID>(c));
+      xRequantizeIntraTb(tu, static_cast<ComponentID>(c));
     }
   }
 }
 
 
 /**
- * Recursively requantizes an intra-predicted tu block
+ * Recursively requantizes an intra-predicted transform block
  */
-Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
-  // Bail if this TU should not be processed
+Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
+  // Recursion base case: transform block spans zero pixels
   if (!tu.ProcessComponentSection(component)) {
     return;
   }
@@ -972,7 +943,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     TComTURecurse childTu(tu, false, TComTU::VERTICAL_SPLIT, true, component);
 
     do {
-      xRequantizeIntraTu(childTu, component);
+      xRequantizeIntraTb(childTu, component);
 
       hasNonzeroCoefficients =
         hasNonzeroCoefficients ||
@@ -980,7 +951,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
     } while (childTu.nextSection(tu));
 
     if (hasNonzeroCoefficients) {
-      xMarkTuCbfTrue(tu, component);
+      xMarkTbCbfTrue(tu, component);
     }
 
     return;
@@ -1009,26 +980,26 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   TComPrediction& predictor  = *getPredSearch();
   TComTrQuant&    transQuant = *getTrQuant();
 
-  const Bool shouldFilterPredictions =
-    xShouldFilterIntraSourceSamples(tu, component);
+  const Bool shouldFilterReferenceSamples =
+    xShouldFilterIntraReferenceSamples(tu, component);
 
   // Fill intra prediction reference sample buffers
   predictor.initIntraPatternChType(
     tu,
     component,
-    shouldFilterPredictions
+    shouldFilterReferenceSamples
   );
 
   // Obtain prediction
   predictor.predIntraAng(
     component,
-    xGetTuPredMode(tu, component),
+    xGetTbIntraDirection(tu, component),
     nullptr,
     0,
     pPrediction,
     cuStride,
     tu,
-    shouldFilterPredictions
+    shouldFilterReferenceSamples
   );
 
   // Perform cross component prediction
@@ -1039,6 +1010,9 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
   );
 
   if (shouldApplyCrossComponentPrediction) {
+    // TODO: Enable cross component prediction
+    assert(0);
+
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
     const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuPelOffset;
 
@@ -1071,7 +1045,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       rowResi += cuStride;
     }
 
-    xClearTuCbf(tu, component);
+    xClearTbCbf(tu, component);
 
   // Otherwise, requantize residual coefficients
   } else {
@@ -1091,38 +1065,8 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
       }
     }
 
-    // Set qp for quantization
-    const QpParam qp(cu, component);
-
-    // TODO: Is this necessary for transcoding?
-#if RDOQ_CHROMA_LAMBDA
-    transQuant.selectLambda(component);
-#endif
-
-    // Transform and quantize
-    TCoeff absSum = 0;
-    transQuant.transformNxN(
-      tu,
-      component,
-      pResidual,
-      cuStride,
-      pCoeff,
-#if ADAPTIVE_QP_SELECTION
-      cu.getArlCoeff(component) + tuCoeffOffset,
-#endif
-      absSum,
-      qp
-    );
-
-    // Inverse transform and quantize
-    transQuant.invTransformNxN(
-      tu,
-      component,
-      pResidual,
-      cuStride,
-      pCoeff,
-      qp
-    );
+    // Transform and quantize prediction error
+    xApplyResidualTransQuant(tu, component, resiBuff);
   }
 
   // Calculate reconstruction (prediction + residual) and copy back to picture
@@ -1156,9 +1100,9 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ComponentID component) {
 
 
 /**
- * Calculates the intra prediction mode for a given tu block
+ * Calculates the intra prediction direction for a given transform block
  */
-UInt TTraTop::xGetTuPredMode(TComTURecurse& tu, ComponentID component) const {
+UInt TTraTop::xGetTbIntraDirection(TComTURecurse& tu, ComponentID component) const {
   const TComDataCU&  cu            = *tu.getCU();
   const TComSPS&     sps           = *cu.getSlice()->getSPS();
   const Bool         isChromaBlock = isChroma(component);
@@ -1192,11 +1136,11 @@ UInt TTraTop::xGetTuPredMode(TComTURecurse& tu, ComponentID component) const {
  * Determines if the intra prediction source samples for a given tu block
  *   should be filtered before used in intra prediction
  */
-Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID component) const {
+Bool TTraTop::xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID component) const {
   const TComDataCU&  cu           = *tu.getCU();
   const TComSPS&     sps          = *cu.getSlice()->getSPS();
   const ChromaFormat chromaFormat = tu.GetChromaFormat();
-  const UInt         intraMode    = xGetTuPredMode(tu, component);
+  const UInt         intraDir     = xGetTbIntraDirection(tu, component);
 
   const TComRectangle& tuRect   = tu.getRect(component);
   const UInt           tuWidth  = tuRect.width;
@@ -1204,7 +1148,7 @@ Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID com
 
   return TComPrediction::filteringIntraReferenceSamples(
     component,
-    intraMode,
+    intraDir,
     tuWidth,
     tuHeight,
     chromaFormat,
@@ -1214,7 +1158,7 @@ Bool TTraTop::xShouldFilterIntraSourceSamples(TComTURecurse& tu, ComponentID com
 
 
 /**
- * Resets the scaling list on the transquant object for a given slice
+ * Resets the scaling list on the transform quantizer object for a given slice
  */
 Void TTraTop::xResetScalingList(TComSlice& slice) {
         TComTrQuant& transQuant = *getTrQuant();
@@ -1244,10 +1188,10 @@ Void TTraTop::xResetScalingList(TComSlice& slice) {
 
 
 /**
- * Marks the cbf for a given transform block to indicate that the block
- *   contains non-zero coefficients
+ * Marks the cbf for a given transform block to indicate that the block contains
+ *   non-zero coefficients
  */
-Void TTraTop::xMarkTuCbfTrue(TComTURecurse& tu, ComponentID component) {
+Void TTraTop::xMarkTbCbfTrue(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu              = *tu.getCU();
   const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
   const UInt        numPartsInTu    = tu.GetAbsPartIdxNumParts();
@@ -1266,7 +1210,7 @@ Void TTraTop::xMarkTuCbfTrue(TComTURecurse& tu, ComponentID component) {
 /**
  * Clears the cbf for a given transform block
  */
-Void TTraTop::xClearTuCbf(TComTURecurse& tu, ComponentID component) {
+Void TTraTop::xClearTbCbf(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu           = *tu.getCU();
   const UInt        numPartsInTu = tu.GetAbsPartIdxNumParts();
   const UInt        tuPartIndex  = tu.GetAbsPartIdxTU();
@@ -1301,11 +1245,12 @@ TComPic* TTraTop::getPicByPoc(Int poc) {
 
 
 /**
- * Detects the case where requantization removed all residual for an
- *   inter-predicted cu coded in merge mode and adjusts the cu to skip mode
+ * Detects the case where requantization removed all residual coefficients for
+ *   an inter-predicted cu coded in merge mode and adjusts the cu to skip mode
  */
 Void TTraTop::xDetectSkipModeDegradation(TComDataCU& cu) const {
   Bool shouldDegradeMergeToSkip =
+    cu.isInter(0) &&
     !cu.getSkipFlag(0) &&
     cu.getMergeFlag(0) &&
     cu.getPartitionSize(0) == SIZE_2Nx2N &&
@@ -1314,4 +1259,51 @@ Void TTraTop::xDetectSkipModeDegradation(TComDataCU& cu) const {
   if (shouldDegradeMergeToSkip) {
     cu.setSkipFlagSubParts(true, 0, cu.getDepth(0));
   }
+}
+
+
+/**
+ * Applies transform and quantization to prediction error
+ */
+Void TTraTop::xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component, TComYuv& residualBuffer) {
+        TComTrQuant&   transQuant    = *getTrQuant();
+        TComDataCU&    cu            = *tu.getCU();
+  const TComRectangle& tuRect        = tu.getRect(component);
+  const Int            cuStride      = residualBuffer.getStride(component);
+  const UInt           tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
+  const UInt           tuCoeffOffset = tu.getCoefficientOffset(component);
+        Pel*           pResidual     = residualBuffer.getAddr(component) + tuPelOffset;
+        TCoeff*        pCoeff        = cu.getCoeff(component) + tuCoeffOffset;
+
+  const QpParam qp(cu, component);
+
+  // TODO: Is this necessary for transcoding?
+#if RDOQ_CHROMA_LAMBDA
+  transQuant.selectLambda(component);
+#endif
+
+  // Transform and quantize
+  TCoeff absSum = 0;
+  transQuant.transformNxN(
+    tu,
+    component,
+    pResidual,
+    cuStride,
+    pCoeff,
+#if ADAPTIVE_QP_SELECTION
+    cu.getArlCoeff(component) + tuCoeffOffset,
+#endif
+    absSum,
+    qp
+  );
+
+  // Inverse transform and quantize
+  transQuant.invTransformNxN(
+    tu,
+    component,
+    pResidual,
+    cuStride,
+    pCoeff,
+    qp
+  );
 }
