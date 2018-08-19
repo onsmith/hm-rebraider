@@ -700,9 +700,7 @@ Void TTraTop::xRequantizeInterTb(TComTURecurse& tu, ComponentID component) {
   const UInt           tuHeight      = tuRect.height;
   const Int            cuStride      = resiBuff.getStride(component);
   const UInt           tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
-  const UInt           tuCoeffOffset = tu.getCoefficientOffset(component);
         Pel*           pResidual     = resiBuff.getAddr(component) + tuPelOffset;
-        TCoeff*        pCoeff        = cu.getCoeff(component) + tuCoeffOffset;
 
   // If the source encoding had no residual coefficients, then the recoded block
   //   also should have no residual coefficients
@@ -966,7 +964,6 @@ Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
   const UInt tuPartIndex   = tu.GetAbsPartIdxTU();
   const UInt cuStride      = recoBuff.getStride(component);
   const UInt tuPelOffset   = tuRect.x0 + cuStride * tuRect.y0;
-  const UInt tuCoeffOffset = tu.getCoefficientOffset(component);
 
   // Get direct pointers to the buffered pixel values
   Pel* pOriginal    = origBuff.getAddr(component, tuPartIndex);
@@ -974,33 +971,8 @@ Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
   Pel* pResidual    = resiBuff.getAddr(component, tuPartIndex);
   Pel* pReconstruct = recoBuff.getAddr(component, tuPartIndex);
 
-  // Get pointer to coefficient buffer
-  TCoeff* pCoeff = cu.getCoeff(component) + tuCoeffOffset;
-
-  TComPrediction& predictor  = *getPredSearch();
-  TComTrQuant&    transQuant = *getTrQuant();
-
-  const Bool shouldFilterReferenceSamples =
-    xShouldFilterIntraReferenceSamples(tu, component);
-
-  // Fill intra prediction reference sample buffers
-  predictor.initIntraPatternChType(
-    tu,
-    component,
-    shouldFilterReferenceSamples
-  );
-
-  // Obtain prediction
-  predictor.predIntraAng(
-    component,
-    xGetTbIntraDirection(tu, component),
-    nullptr,
-    0,
-    pPrediction,
-    cuStride,
-    tu,
-    shouldFilterReferenceSamples
-  );
+  // Construct prediction
+  xConstructIntraPrediction(tu, component, predBuff);
 
   // Perform cross component prediction
   // TODO: Double check the location of cross component prediction
@@ -1016,6 +988,7 @@ Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
     const Int  strideLuma    = resiBuff.getStride(COMPONENT_Y);
     const Pel* pResidualLuma = resiBuff.getAddr(COMPONENT_Y) + tuPelOffset;
 
+    TComTrQuant& transQuant = *getTrQuant();
     transQuant.crossComponentPrediction(
       tu,            //       TComTU&       rTu,
       component,     // const ComponentID   compID,
@@ -1305,5 +1278,35 @@ Void TTraTop::xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component,
     cuStride,
     pCoeff,
     qp
+  );
+}
+
+
+/**
+ * Constructs the intra-mode prediction for a given prediction block
+ */
+Void TTraTop::xConstructIntraPrediction(TComTURecurse& pu, ComponentID component, TComYuv& predictionBuffer) {
+  TComPrediction& predictor = *getPredSearch();
+
+  const Bool shouldFilterReferenceSamples =
+    xShouldFilterIntraReferenceSamples(pu, component);
+
+  // Fill intra prediction reference sample buffers
+  predictor.initIntraPatternChType(
+    pu,
+    component,
+    shouldFilterReferenceSamples
+  );
+
+  // Construct intra prediction
+  predictor.predIntraAng(
+    component,
+    xGetTbIntraDirection(pu, component),
+    nullptr,
+    0,
+    predictionBuffer.getAddr(component, pu.GetAbsPartIdxTU()),
+    predictionBuffer.getStride(component),
+    pu,
+    shouldFilterReferenceSamples
   );
 }

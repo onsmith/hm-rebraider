@@ -186,6 +186,9 @@ protected:
   //   should be filtered before used in intra prediction
   Bool xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID component) const;
 
+  // Constructs the intra-mode prediction for a given prediction block
+  Void xConstructIntraPrediction(TComTURecurse& pu, ComponentID component, TComYuv& predictionBuffer);
+
 
   /**
    * Coding block flag (cbf) management
