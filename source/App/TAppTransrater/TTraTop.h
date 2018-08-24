@@ -164,7 +164,7 @@ protected:
 
   // Detects the case where requantization removed all residual coefficients for
   //   an inter-predicted cu coded in merge mode and adjusts the cu to skip mode
-  Void xDetectSkipModeDegradation(TComDataCU& cu) const;
+  Void xReevaluateSkipModeDecision(TComDataCU& cu) const;
 
 
   /**

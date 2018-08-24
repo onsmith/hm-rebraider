@@ -618,7 +618,7 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
   }
 
   // Degrade merge mode cus into skip mode cus
-  xDetectSkipModeDegradation(cu);
+  xReevaluateSkipModeDecision(cu);
 
   // Obtain reconstructed signal by computing (prediction + residual)
   recoBuff.addClip(
@@ -1221,16 +1221,12 @@ TComPic* TTraTop::getPicByPoc(Int poc) {
  * Detects the case where requantization removed all residual coefficients for
  *   an inter-predicted cu coded in merge mode and adjusts the cu to skip mode
  */
-Void TTraTop::xDetectSkipModeDegradation(TComDataCU& cu) const {
-  Bool shouldDegradeMergeToSkip =
-    cu.isInter(0) &&
-    !cu.getSkipFlag(0) &&
-    cu.getMergeFlag(0) &&
-    cu.getPartitionSize(0) == SIZE_2Nx2N &&
-    cu.getQtRootCbf(0) == 0;
+Void TTraTop::xReevaluateSkipModeDecision(TComDataCU& cu) const {
+  const Bool isUsingMergePrediction =
+    cu.isInter(0) && (cu.getMergeFlag(0) || cu.getSkipFlag(0));
 
-  if (shouldDegradeMergeToSkip) {
-    cu.setSkipFlagSubParts(true, 0, cu.getDepth(0));
+  if (isUsingMergePrediction && cu.getPartitionSize(0) == SIZE_2Nx2N) {
+    cu.setSkipFlagSubParts(cu.getQtRootCbf(0) == 0, 0, cu.getDepth(0));
   }
 }
 
