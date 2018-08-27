@@ -48,7 +48,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
   TComPPS& encPps = *getPpsMap()->allocatePS(pps.getPPSId());
   encPps = pps;
-  encPps.setPicInitQPMinus26(encPps.getPicInitQPMinus26() + 4);
+  encPps.setPicInitQPMinus26(encPps.getPicInitQPMinus26() + dqp);
   xEncodePPS(encPps, outputNalu.m_Bitstream);
 }
 
@@ -494,7 +494,7 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
  * Requantize a given slice by altering residual qp
  */
 Void TTraTop::xRequantizeSlice(TComSlice& slice) {
-  slice.setSliceQp(std::min(std::max(slice.getSliceQp() + 4, 0), 51));
+  slice.setSliceQp(std::min(std::max(slice.getSliceQp() + dqp, 0), 51));
 
   TComPicSym& picSym         = *slice.getPic()->getPicSym();
   UInt        startCtuTsAddr = slice.getSliceSegmentCurStartCtuTsAddr();
@@ -570,7 +570,7 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
   TComYuv& recoBuff = m_reconstructionBuffer[cuDepth];
 
   // Adjust cu qp
-  cu.setQPSubParts(std::min(std::max(cu.getQP(0) + 4, 0), 51), 0, cuDepth);
+  cu.setQPSubParts(std::min(std::max(cu.getQP(0) + dqp, 0), 51), 0, cuDepth);
 
   // Requantize cu
   if (cu.isInter(0)) {

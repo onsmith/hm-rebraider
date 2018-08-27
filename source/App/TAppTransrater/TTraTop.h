@@ -68,6 +68,9 @@ protected:
   std::vector<TComYuv> m_residualBuffer;
   std::vector<TComYuv> m_reconstructionBuffer;
 
+  // QP adjustment term
+  Int dqp = 6;
+
 
 public:
   // Default constructor
