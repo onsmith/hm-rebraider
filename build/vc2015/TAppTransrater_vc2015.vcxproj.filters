@@ -11,27 +11,27 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraTop.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraCfg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\App\TAppTransrater\TTraTop.cpp">
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrCfg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrTop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrTop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraTop.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrTop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrTop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\App\TAppTransrater\TTraTop.h">
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrCfg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

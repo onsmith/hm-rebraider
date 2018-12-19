@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
   fprintf(stdout, "\n");
 
   // Create transrater
-  TAppTraTop transrater;
+  TAppDbrTop transrater;
 
   // Parse configuration
   if (!transrater.parseCfg(argc, argv)) {

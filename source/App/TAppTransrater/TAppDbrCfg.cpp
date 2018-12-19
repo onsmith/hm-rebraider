@@ -33,16 +33,16 @@
 
 
 /**
- *  \file     TAppTraCfg.cpp
- *  \project  TAppTransrater
- *  \brief    Transrater configuration class implementation
+ *  \file     TAppDbrCfg.cpp
+ *  \project  TAppDebraider
+ *  \brief    Debraider configuration class implementation
  */
 
 
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include "TAppTraCfg.h"
+#include "TAppDbrCfg.h"
 #include "TAppCommon/program_options_lite.h"
 #include "TLibCommon/TComChromaFormat.h"
 
@@ -63,7 +63,7 @@ namespace po = df::program_options_lite;
 /**
  * Default constructor
  */
-TAppTraCfg::TAppTraCfg() :
+TAppDbrCfg::TAppDbrCfg() :
   m_inputFileName(),
   m_outputFileName(),
   m_reconFileName(),
@@ -92,7 +92,7 @@ TAppTraCfg::TAppTraCfg() :
 /**
  * Destructor
  */
-TAppTraCfg::~TAppTraCfg() {
+TAppDbrCfg::~TAppDbrCfg() {
 }
 
 
@@ -102,7 +102,7 @@ TAppTraCfg::~TAppTraCfg() {
  * \param argc  number of command line arguments
  * \param argv  array of command line arguments
  */
-Bool TAppTraCfg::parseCfg(Int argc, TChar* argv[]) {
+Bool TAppDbrCfg::parseCfg(Int argc, TChar* argv[]) {
   Bool   do_help = false;
   Int    warnUnknownParameter = 0;
   string cfg_TargetDecLayerIdSetFile;

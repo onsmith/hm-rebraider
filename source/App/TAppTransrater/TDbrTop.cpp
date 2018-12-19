@@ -1,10 +1,10 @@
-#include "TTraTop.h"
+#include "TDbrTop.h"
 
 
 /**
- * Default constructor for transrater class
+ * Default constructor for debraider class
  */
-TTraTop::TTraTop() {
+TDbrTop::TDbrTop() {
   TEncSlice& sliceEncoder = *getSliceEncoder();
   TEncCu&    cuEncoder    = *getCuEncoder();
 
@@ -19,7 +19,7 @@ TTraTop::TTraTop() {
 /**
  * Transcode a NAL unit without decoding
  */
-Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
+Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu) {
   outputNalu = inputNalu;
 }
 
@@ -27,7 +27,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 /**
  * Transcode a decoded VPS NAL unit
  */
-Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
+Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComVPS& vps) {
   setVPS(&vps);
   xEncodeVPS(vps, outputNalu.m_Bitstream);
 }
@@ -36,7 +36,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 /**
  * Transcode a decoded SPS NAL unit
  */
-Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
+Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSPS& sps) {
   *getSpsMap()->allocatePS(sps.getSPSId()) = sps;
   xEncodeSPS(sps, outputNalu.m_Bitstream);
 }
@@ -45,7 +45,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 /**
  * Transcode a decoded PPS NAL unit
  */
-Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
+Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComPPS& pps) {
   TComPPS& encPps = *getPpsMap()->allocatePS(pps.getPPSId());
   encPps = pps;
   encPps.setPicInitQPMinus26(encPps.getPicInitQPMinus26() + dqp);
@@ -56,7 +56,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 /**
  * Transcode a decoded slice NAL unit
  */
-Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
+Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu, const TComSlice& slice) {
   // Find or create an encoder picture for the current slice
   TComPic& encPic = xGetEncPicBySlice(slice);
 
@@ -85,7 +85,7 @@ Void TTraTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
 /**
  * Encode a VPS and write to bitstream
  */
-Void TTraTop::xEncodeVPS(const TComVPS& vps, TComOutputBitstream& bitstream) {
+Void TDbrTop::xEncodeVPS(const TComVPS& vps, TComOutputBitstream& bitstream) {
   TEncEntropy& entropyEncoder = *getEntropyCoder();
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
@@ -97,7 +97,7 @@ Void TTraTop::xEncodeVPS(const TComVPS& vps, TComOutputBitstream& bitstream) {
 /**
  * Encode a SPS and write to bitstream
  */
-Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
+Void TDbrTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
   TEncEntropy& entropyEncoder = *getEntropyCoder();
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
@@ -134,7 +134,7 @@ Void TTraTop::xEncodeSPS(const TComSPS& sps, TComOutputBitstream& bitstream) {
 /**
  * Encode a PPS and write to bitstream
  */
-Void TTraTop::xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream) {
+Void TDbrTop::xEncodePPS(const TComPPS& pps, TComOutputBitstream& bitstream) {
   TEncEntropy& entropyEncoder = *getEntropyCoder();
   TEncCavlc&   cavlcEncoder   = *getCavlcCoder();
   entropyEncoder.setEntropyCoder(&cavlcEncoder);
@@ -174,7 +174,7 @@ static inline Int numEncSubstreams(const TComSlice& slice) {
 /**
  * Encode a slice and write to bitstream
  */
-Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
+Void TDbrTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
   // The provided slice must have an associated TComPic
   TComPic& pic = *slice.getPic();
 
@@ -241,7 +241,7 @@ Void TTraTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
 /**
  * Apply filters and compress motion for a reconstructed picture
  */
-Void TTraTop::xFinishPicture(TComPic& pic) {
+Void TDbrTop::xFinishPicture(TComPic& pic) {
   // Get pps, sps
   const TComPPS& pps = pic.getPicSym()->getPPS();
   const TComSPS& sps = pic.getPicSym()->getSPS();
@@ -273,7 +273,7 @@ Void TTraTop::xFinishPicture(TComPic& pic) {
 /**
  * Resolve a TComSlice into its corresponding encoder TComPic
  */
-TComPic& TTraTop::xGetEncPicBySlice(const TComSlice& slice) {
+TComPic& TDbrTop::xGetEncPicBySlice(const TComSlice& slice) {
   // Search for existing TComPic with the desired POC
   TComPic* pPic = xGetEncPicByPoc(slice.getPOC());
   if (pPic != nullptr) {
@@ -297,7 +297,7 @@ TComPic& TTraTop::xGetEncPicBySlice(const TComSlice& slice) {
 /**
  * Copy a TComSlice to a TComPic, returning a reference to the new TComSlice
  */
-TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) {
+TComSlice& TDbrTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) {
   // Create destination slice
   dstPic.allocateNewSlice();
   TComSlice& dstSlice = *dstPic.getSlice(dstPic.getNumAllocatedSlice() - 1);
@@ -345,7 +345,7 @@ TComSlice& TTraTop::xCopySliceToPic(const TComSlice& srcSlice, TComPic& dstPic) 
 /**
  * Get an unused entry from the picture buffer
  */
-TComPic*& TTraTop::xGetUnusedEntry() {
+TComPic*& TDbrTop::xGetUnusedEntry() {
   TComList<TComPic*>& cpb = *getListPic();
 
   // Sort the buffer
@@ -375,7 +375,7 @@ TComPic*& TTraTop::xGetUnusedEntry() {
 /**
  * Find an existing const TComPic by POC
  */
-TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
+TComPic* TDbrTop::xGetEncPicByPoc(Int poc) {
   TComList<TComPic*>& cpb = *getListPic();
 
   for (auto it = cpb.begin(); it != cpb.end(); it++) {
@@ -392,7 +392,7 @@ TComPic* TTraTop::xGetEncPicByPoc(Int poc) {
 /**
  * Set up memory buffers for all cu sizes
  */
-Void TTraTop::xMakeCuBuffers(const TComSPS& sps) {
+Void TDbrTop::xMakeCuBuffers(const TComSPS& sps) {
   UInt maxDepth             = sps.getMaxTotalCUDepth();
   UInt maxWidth             = sps.getMaxCUWidth();
   UInt maxHeight            = sps.getMaxCUHeight();
@@ -432,7 +432,7 @@ Void TTraTop::xMakeCuBuffers(const TComSPS& sps) {
  * Set up an encoder TComPic by copying relevant configuration from a
  *   corresponding decoded TComPic
  */
-Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
+Void TDbrTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
   // Get the encoder TComPPS and TComSPS for this TComPic
   TComPPS& pps = *getPpsMap()->getPS(srcPic.getPicSym()->getPPS().getPPSId());
   TComSPS& sps = *getSpsMap()->getPS(srcPic.getPicSym()->getSPS().getSPSId());
@@ -493,7 +493,7 @@ Void TTraTop::xCopyDecPic(const TComPic& srcPic, TComPic& dstPic) {
 /**
  * Requantize a given slice by altering residual qp
  */
-Void TTraTop::xRequantizeSlice(TComSlice& slice) {
+Void TDbrTop::xRequantizeSlice(TComSlice& slice) {
   slice.setSliceQp(std::min(std::max(slice.getSliceQp() + dqp, 0), 51));
 
   TComPicSym& picSym         = *slice.getPic()->getPicSym();
@@ -510,7 +510,7 @@ Void TTraTop::xRequantizeSlice(TComSlice& slice) {
 /**
  * Recursively compress a ctu by altering residual qp
  */
-Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
+Void TDbrTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
         TComPic& pic = *ctu.getPic();
   const TComSPS& sps = *ctu.getSlice()->getSPS();
 
@@ -586,7 +586,7 @@ Void TTraTop::xRequantizeCtu(TComDataCU& ctu, UInt cuPartAddr, UInt cuDepth) {
 /**
  * Requantizes an inter-predicted cu
  */
-Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
+Void TDbrTop::xRequantizeInterCu(TComDataCU& cu) {
   TComPic& pic     = *cu.getPic();
   UInt     cuDepth = cu.getDepth(0);
   UInt     cuWidth = cu.getWidth(0);
@@ -641,7 +641,7 @@ Void TTraTop::xRequantizeInterCu(TComDataCU& cu) {
 /**
  * Recursively requantizes an inter-predicted transform block
  */
-Void TTraTop::xRequantizeInterTb(TComTURecurse& tu, ComponentID component) {
+Void TDbrTop::xRequantizeInterTb(TComTURecurse& tu, ComponentID component) {
   TComTrQuant& transQuant = *getTrQuant();
   TComDataCU&  cu         = *tu.getCU();
   UChar        cuDepth    = cu.getDepth(0);
@@ -762,7 +762,7 @@ Void TTraTop::xRequantizeInterTb(TComTURecurse& tu, ComponentID component) {
  * Copies pixels corresponding to a given cu directly from one TComPicYuv to
  *   another
  */
-Void TTraTop::xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst) {
+Void TDbrTop::xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& dst) {
   // Uses the origBuff cu buffer to copy pixels
   TComYuv& origBuff = m_originalBuffer[cu.getDepth(0)];
 
@@ -780,7 +780,7 @@ Void TTraTop::xCopyCuPixels(TComDataCU& cu, const TComPicYuv& src, TComPicYuv& d
 /**
  * Requantizes an intra-predicted cu
  */
-Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
+Void TDbrTop::xRequantizeIntraCu(TComDataCU& cu) {
   TComPic& pic       = *cu.getPic();
   UInt     cuDepth   = cu.getDepth(0);
   UInt     cuWidth   = cu.getWidth(0);
@@ -869,7 +869,7 @@ Void TTraTop::xRequantizeIntraCu(TComDataCU& cu) {
 /**
  * Requantizes an intra-predicted tu channel type
  */
-Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
+Void TDbrTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
   TComDataCU& cu            = *tu.getCU();
   UInt        uiTrDepth     = tu.GetTransformDepthRel();
   UInt        uiAbsPartIdx  = tu.GetAbsPartIdxTU();
@@ -923,7 +923,7 @@ Void TTraTop::xRequantizeIntraTu(TComTURecurse& tu, ChannelType channelType) {
 /**
  * Recursively requantizes an intra-predicted transform block
  */
-Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
+Void TDbrTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
   // Recursion base case: transform block spans zero pixels
   if (!tu.ProcessComponentSection(component)) {
     return;
@@ -1075,7 +1075,7 @@ Void TTraTop::xRequantizeIntraTb(TComTURecurse& tu, ComponentID component) {
 /**
  * Calculates the intra prediction direction for a given transform block
  */
-UInt TTraTop::xGetTbIntraDirection(TComTURecurse& tu, ComponentID component) const {
+UInt TDbrTop::xGetTbIntraDirection(TComTURecurse& tu, ComponentID component) const {
   const TComDataCU&  cu            = *tu.getCU();
   const TComSPS&     sps           = *cu.getSlice()->getSPS();
   const Bool         isChromaBlock = isChroma(component);
@@ -1109,7 +1109,7 @@ UInt TTraTop::xGetTbIntraDirection(TComTURecurse& tu, ComponentID component) con
  * Determines if the intra prediction source samples for a given tu block
  *   should be filtered before used in intra prediction
  */
-Bool TTraTop::xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID component) const {
+Bool TDbrTop::xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID component) const {
   const TComDataCU&  cu           = *tu.getCU();
   const TComSPS&     sps          = *cu.getSlice()->getSPS();
   const ChromaFormat chromaFormat = tu.GetChromaFormat();
@@ -1133,7 +1133,7 @@ Bool TTraTop::xShouldFilterIntraReferenceSamples(TComTURecurse& tu, ComponentID 
 /**
  * Resets the scaling list on the transform quantizer object for a given slice
  */
-Void TTraTop::xResetScalingList(TComSlice& slice) {
+Void TDbrTop::xResetScalingList(TComSlice& slice) {
         TComTrQuant& transQuant = *getTrQuant();
   const TComSPS&     sps        = *slice.getSPS();
   const TComPPS&     pps        = *slice.getPPS();
@@ -1164,7 +1164,7 @@ Void TTraTop::xResetScalingList(TComSlice& slice) {
  * Marks the cbf for a given transform block to indicate that the block contains
  *   non-zero coefficients
  */
-Void TTraTop::xMarkTbCbfTrue(TComTURecurse& tu, ComponentID component) {
+Void TDbrTop::xMarkTbCbfTrue(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu              = *tu.getCU();
   const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
   const UInt        numPartsInTu    = tu.GetAbsPartIdxNumParts();
@@ -1183,7 +1183,7 @@ Void TTraTop::xMarkTbCbfTrue(TComTURecurse& tu, ComponentID component) {
 /**
  * Clears the cbf for a given transform block
  */
-Void TTraTop::xClearTbCbf(TComTURecurse& tu, ComponentID component) {
+Void TDbrTop::xClearTbCbf(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu           = *tu.getCU();
   const UInt        numPartsInTu = tu.GetAbsPartIdxNumParts();
   const UInt        tuPartIndex  = tu.GetAbsPartIdxTU();
@@ -1200,7 +1200,7 @@ Void TTraTop::xClearTbCbf(TComTURecurse& tu, ComponentID component) {
  * Checks the cbf of a given transform block to determine if the block has
  *   non-zero coefficients
  */
-Bool TTraTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) {
+Bool TDbrTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) {
         TComDataCU& cu              = *tu.getCU();
   const UInt        tuRelativeDepth = tu.GetTransformDepthRel();
   const UInt        tuPartIndex     = tu.GetAbsPartIdxTU();
@@ -1212,7 +1212,7 @@ Bool TTraTop::xHasNonzeroCoefficients(TComTURecurse& tu, ComponentID component) 
 /**
  * Find an existing TComPic by POC
  */
-TComPic* TTraTop::getPicByPoc(Int poc) {
+TComPic* TDbrTop::getPicByPoc(Int poc) {
   return xGetEncPicByPoc(poc);
 }
 
@@ -1221,7 +1221,7 @@ TComPic* TTraTop::getPicByPoc(Int poc) {
  * Detects the case where requantization removed all residual coefficients for
  *   an inter-predicted cu coded in merge mode and adjusts the cu to skip mode
  */
-Void TTraTop::xReevaluateSkipModeDecision(TComDataCU& cu) const {
+Void TDbrTop::xReevaluateSkipModeDecision(TComDataCU& cu) const {
   const Bool isUsingMergePrediction =
     cu.isInter(0) && (cu.getMergeFlag(0) || cu.getSkipFlag(0));
 
@@ -1234,7 +1234,7 @@ Void TTraTop::xReevaluateSkipModeDecision(TComDataCU& cu) const {
 /**
  * Applies transform and quantization to prediction error
  */
-Void TTraTop::xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component, TComYuv& residualBuffer) {
+Void TDbrTop::xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component, TComYuv& residualBuffer) {
         TComTrQuant&   transQuant    = *getTrQuant();
         TComDataCU&    cu            = *tu.getCU();
   const TComRectangle& tuRect        = tu.getRect(component);
@@ -1281,7 +1281,7 @@ Void TTraTop::xApplyResidualTransQuant(TComTURecurse& tu, ComponentID component,
 /**
  * Constructs the intra-mode prediction for a given prediction block
  */
-Void TTraTop::xConstructIntraPrediction(TComTURecurse& pu, ComponentID component, TComYuv& predictionBuffer) {
+Void TDbrTop::xConstructIntraPrediction(TComTURecurse& pu, ComponentID component, TComYuv& predictionBuffer) {
   TComPrediction& predictor = *getPredSearch();
 
   const Bool shouldFilterReferenceSamples =

@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TAppTraTop.h
- *  \project  TAppTransrater
- *  \brief    Transrater application class header
+ *  \file     TAppDbrTop.h
+ *  \project  TAppDebraider
+ *  \brief    Debraider application class header
  */
 
 
@@ -53,9 +53,9 @@
 #include "TLibCommon/TComPicYuv.h"
 #include "TLibDecoder/TDecTop.h"
 #include "TLibEncoder/TEncTop.h"
-#include "TAppTraCfg.h"
+#include "TAppDbrCfg.h"
 
-#include "TTraTop.h"
+#include "TDbrTop.h"
 
 
 using std::ifstream;
@@ -63,17 +63,17 @@ using std::ofstream;
 using std::ostream;
 
 
-//! \ingroup TAppTransrater
+//! \ingroup TAppDebraider
 //! \{
 
 
-class TAppTraTop : public TAppTraCfg {
+class TAppDbrTop : public TAppDbrCfg {
 private:
   // Internal decoder object
   TDecTop m_decoder;
 
   // Internal encoder object
-  TTraTop m_transcoder;
+  TDbrTop m_transcoder;
 
   // The picture order count (POC) of the last frame that was output
   Int m_lastOutputPOC;
@@ -87,7 +87,7 @@ private:
 
 public:
   // Default constructor
-  TAppTraTop();
+  TAppDbrTop();
 
   // Performs transrating
   Void transrate();

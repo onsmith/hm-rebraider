@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TAppTraTop.cpp
- *  \project  TAppTransrater
- *  \brief    Transrater application class implementation
+ *  \file     TAppDbrTop.cpp
+ *  \project  TAppDebraider
+ *  \brief    Debraider application class implementation
  */
 
 
@@ -45,7 +45,7 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include "TAppTraTop.h"
+#include "TAppDbrTop.h"
 
 #include "TLibDecoder/AnnexBread.h"
 #include "TLibDecoder/NALread.h"
@@ -57,14 +57,14 @@
 #endif
 
 
-//! \ingroup TAppTransrater
+//! \ingroup TAppDebraider
 //! \{
 
 
 /**
  * Default constructor
  */
-TAppTraTop::TAppTraTop() :
+TAppDbrTop::TAppDbrTop() :
   m_lastOutputPOC(-MAX_INT) {
 }
 
@@ -72,7 +72,7 @@ TAppTraTop::TAppTraTop() :
 /**
  * Gets the number of decoding errors detected
  */
-UInt TAppTraTop::numDecodingErrorsDetected() const {
+UInt TAppDbrTop::numDecodingErrorsDetected() const {
   return m_decoder.getNumberOfChecksumErrorsDetected();
 }
 
@@ -85,7 +85,7 @@ UInt TAppTraTop::numDecodingErrorsDetected() const {
  *   4. Until the end of the bitstream, decode and recode video frames
  *   5. Destroy the internal encoder and decoder objects
  */
-Void TAppTraTop::transrate() {
+Void TAppDbrTop::transrate() {
   // Picture order count
   Int poc;
 
@@ -287,7 +287,7 @@ Void TAppTraTop::transrate() {
 /**
  * Helper method to open an ifstream for reading the source hevc bitstream
  */
-Void TAppTraTop::xOpenInputStream(ifstream& stream) const {
+Void TAppDbrTop::xOpenInputStream(ifstream& stream) const {
   stream.open(
     m_inputFileName.c_str(),
     ifstream::in | ifstream::binary
@@ -307,7 +307,7 @@ Void TAppTraTop::xOpenInputStream(ifstream& stream) const {
 /**
  * Helper method to open an ofstream for writing the transrated hevc bitstream
  */
-Void TAppTraTop::xOpenOutputStream(ofstream& stream) const {
+Void TAppDbrTop::xOpenOutputStream(ofstream& stream) const {
   stream.open(
     m_outputFileName.c_str(),
     fstream::binary | fstream::out
@@ -327,7 +327,7 @@ Void TAppTraTop::xOpenOutputStream(ofstream& stream) const {
 /**
  * Overwrites the default configuration for output bit depth
  */
-Void TAppTraTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
+Void TAppDbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
   for (UInt c = 0; c < MAX_NUM_CHANNEL_TYPE; c++) {
     if (m_outputBitDepth[c] == 0) {
       m_outputBitDepth[c] = bitDepths.recon[c];
@@ -339,14 +339,14 @@ Void TAppTraTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
 /**
  * Transfers the current configuration to the encoder object
  */
-Void TAppTraTop::xConfigTranscoder() {
+Void TAppDbrTop::xConfigTranscoder() {
 }
 
 
 /**
  * Transfers the current configuration to the decoder object
  */
-Void TAppTraTop::xConfigDecoder() {
+Void TAppDbrTop::xConfigDecoder() {
   // Reset decoder
   m_decoder.destroy();
   m_decoder.create();
@@ -372,7 +372,7 @@ Void TAppTraTop::xConfigDecoder() {
  *
  * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppTraTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
+Void TAppDbrTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
   if (dpb == nullptr || dpb->empty()) {
     return;
   }
@@ -532,7 +532,7 @@ Void TAppTraTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
  *
  * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppTraTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
+Void TAppDbrTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
   if (dpb == nullptr || dpb->empty()) {
     return;
   }
@@ -640,7 +640,7 @@ Void TAppTraTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
 /**
  * Writes a raw reconstructed frame to the output bitstream.
  */
-Void TAppTraTop::xWriteFrameToOutput(TComPic* frame) {
+Void TAppDbrTop::xWriteFrameToOutput(TComPic* frame) {
   if (m_decodedYUVOutputStream.isOpen()) {
     const Window &conf    = frame->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? frame->getDefDisplayWindow() : Window());
@@ -662,7 +662,7 @@ Void TAppTraTop::xWriteFrameToOutput(TComPic* frame) {
 /**
  * Writes a raw reconstructed interlaced frame to the output bitstream.
  */
-Void TAppTraTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
+Void TAppDbrTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
   if (m_decodedYUVOutputStream.isOpen()) {
     const Window& conf    = field1->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? field1->getDefDisplayWindow() : Window());
@@ -685,7 +685,7 @@ Void TAppTraTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
 /**
  * Checks whether a given layerId should be decoded.
  */
-Bool TAppTraTop::xWillDecodeLayer(Int layerId) const {
+Bool TAppDbrTop::xWillDecodeLayer(Int layerId) const {
   if (xWillDecodeAllLayers()) {
     return true;
   }
@@ -703,7 +703,7 @@ Bool TAppTraTop::xWillDecodeLayer(Int layerId) const {
 /**
  * Checks whether all layerIds should be decoded.
  */
-Bool TAppTraTop::xWillDecodeAllLayers() const {
+Bool TAppDbrTop::xWillDecodeAllLayers() const {
   return (m_targetDecLayerIdSet.size() == 0);
 }
 
@@ -711,7 +711,7 @@ Bool TAppTraTop::xWillDecodeAllLayers() const {
 /**
  * Encodes a decoded NAL unit
  */
-Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
+Void TAppDbrTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
   switch (sourceNalu.m_nalUnitType) {
     case NAL_UNIT_VPS:
       m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
@@ -822,7 +822,7 @@ Void TAppTraTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& enco
  *
  * See: Section 7.4.2.4.4 of the HEVC HM spec
  */
-Bool TAppTraTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
+Bool TAppDbrTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
   if (nalu.m_nuhLayerId != 0) {
     return false;
   }
@@ -860,7 +860,7 @@ Bool TAppTraTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
  * Writes the current access unit to the given bitstream and resets the current
  *   access unit list
  */
-Void TAppTraTop::xFlushAccessUnit(ostream& stream) {
+Void TAppDbrTop::xFlushAccessUnit(ostream& stream) {
   writeAnnexB(stream, m_currentAccessUnit);
 
   for (auto it = m_currentAccessUnit.begin(); it != m_currentAccessUnit.end(); it++) {

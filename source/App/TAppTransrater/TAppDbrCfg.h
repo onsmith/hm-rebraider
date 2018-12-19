@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TAppTraCfg.h
- *  \project  TAppTransrater
- *  \brief    Transrater configuration class header
+ *  \file     TAppDbrCfg.h
+ *  \project  TAppDebraider
+ *  \brief    Debraider configuration class header
  */
 
 
@@ -55,11 +55,11 @@
 using std::string;
 
 
-//! \ingroup TAppTransrater
+//! \ingroup TAppDebraider
 //! \{
 
 
-class TAppTraCfg {
+class TAppDbrCfg {
 protected:
   // Input compressed hevc bitstream file name
   string m_inputFileName;
@@ -118,10 +118,10 @@ protected:
 
 public:
   // Default constructor
-  TAppTraCfg();
+  TAppDbrCfg();
 
   // Virtual destructor
-  virtual ~TAppTraCfg();
+  virtual ~TAppDbrCfg();
 
   // Reads configurations options from command line arguments
   Bool parseCfg(Int argc, TChar* argv[]);

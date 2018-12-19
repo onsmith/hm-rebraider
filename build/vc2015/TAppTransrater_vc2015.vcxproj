@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>TAppTransrater</ProjectName>
+    <ProjectName>TAppDebraider</ProjectName>
     <ProjectGuid>{84D41F6B-FEB4-48AA-8268-FC0BF37583C3}</ProjectGuid>
     <RootNamespace>TAppDecoder</RootNamespace>
     <Keyword>Win32Proj</Keyword>
@@ -172,15 +172,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraCfg.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppTraTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrCfg.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrTop.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\tramain.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TTraTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrTop.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraCfg.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppTraTop.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TTraTop.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrCfg.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrTop.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="TAppCommon_vc2015.vcxproj">

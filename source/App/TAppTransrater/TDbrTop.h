@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TTraTop.h
- *  \project  TAppTransrater
- *  \brief    Transrater class header
+ *  \file     TDbrTop.h
+ *  \project  TAppDebraider
+ *  \brief    Debraider class header
  */
 
 
@@ -53,11 +53,11 @@
 #include <vector>
 
 
-//! \ingroup TAppTransrater
+//! \ingroup TAppDebraider
 //! \{
 
 
-class TTraTop : public TEncTop {
+class TDbrTop : public TEncTop {
 protected:
   // Buffer of cu data structures to be reused during ctu recursion
   std::vector<TComDataCU> m_cuBuffer;
@@ -74,10 +74,10 @@ protected:
 
 public:
   // Default constructor
-  TTraTop();
+  TDbrTop();
 
   // Virtual destructor
-  virtual ~TTraTop() = default;
+  virtual ~TDbrTop() = default;
 
   // Transcode a NAL unit without decoding
   Void transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu);
