@@ -6,13 +6,13 @@
 /**
  * Helper methods to write codes to the output bitstreams
  */
-Void TDbrEntropy::xWriteCode(TComBitIf& bitstream, UInt uiCode, UInt uiLength, const string& name) {
+Void TDbrEntropy::xWriteCode(TComBitIf& bitstream, UInt uiCode, UInt uiLength, const string& /* name */) {
   assert (uiLength > 0);
   bitstream.write(uiCode, uiLength);
 }
 
 
-Void TDbrEntropy::xWriteUvlc(TComBitIf& bitstream, UInt uiCode, const string& name) {
+Void TDbrEntropy::xWriteUvlc(TComBitIf& bitstream, UInt uiCode, const string& /* name */) {
   UInt uiLength = 1;
   UInt uiTemp = ++uiCode;
 
@@ -34,12 +34,25 @@ Void TDbrEntropy::xWriteSvlc(TComBitIf& bitstream, Int iCode, const string& name
 }
 
 
-Void TDbrEntropy::xWriteFlag(TComBitIf& bitstream, UInt uiCode, const string& name) {
+Void TDbrEntropy::xWriteFlag(TComBitIf& bitstream, UInt uiCode, const string& /* name*/ ) {
   bitstream.write(uiCode, 1);
 }
 
 
-UInt TDbrEntropy::xConvertToUInt(Int iValue) {
+Void TDbrEntropy::xWriteRbspTrailingBits(TComBitIf& bitstream) {
+  xWriteFlag(bitstream, 1, "rbsp_stop_one_bit");
+
+  Int cnt = 0;
+  while (bitstream.getNumBitsUntilByteAligned()) {
+    xWriteFlag(bitstream, 0, "rbsp_alignment_zero_bit");
+    cnt++;
+  }
+
+  assert(cnt < 8);
+}
+
+
+UInt TDbrEntropy::xConvertToUInt(Int iValue) const {
   return (iValue <= 0) ? -iValue << 1 : (iValue << 1) - 1;
 }
 
@@ -141,6 +154,91 @@ Void TDbrEntropy::xCodeHrdParameters(TComBitIf& bitstream, const TComHRD *hrd, B
 
 
 
+/**
+ * Codes profile tier level (PTL) info (for VPS)
+ */
+Void TDbrEntropy::xCodePTL(TComBitIf& bitstream, const TComPTL* pcPTL, Bool profilePresentFlag, Int maxNumSubLayersMinus1) {
+  if (profilePresentFlag) {
+    xCodeProfileTier(bitstream, pcPTL->getGeneralPTL(), false);
+  }
+
+  xWriteCode(bitstream, Int(pcPTL->getGeneralPTL()->getLevelIdc()), 8, "general_level_idc");
+
+  for (Int i = 0; i < maxNumSubLayersMinus1; i++) {
+    xWriteFlag(bitstream, pcPTL->getSubLayerProfilePresentFlag(i), "sub_layer_profile_present_flag[i]");
+    xWriteFlag(bitstream, pcPTL->getSubLayerLevelPresentFlag(i),   "sub_layer_level_present_flag[i]");
+  }
+
+  if (maxNumSubLayersMinus1 > 0) {
+    for (Int i = maxNumSubLayersMinus1; i < 8; i++) {
+      xWriteCode(bitstream, 0, 2, "reserved_zero_2bits");
+    }
+  }
+
+  for (Int i = 0; i < maxNumSubLayersMinus1; i++) {
+    if (pcPTL->getSubLayerProfilePresentFlag(i)) {
+      xCodeProfileTier(bitstream, pcPTL->getSubLayerPTL(i), true);
+    }
+
+    if (pcPTL->getSubLayerLevelPresentFlag(i)) {
+      xWriteCode(bitstream, Int(pcPTL->getSubLayerPTL(i)->getLevelIdc()), 8, "sub_layer_level_idc[i]");
+    }
+  }
+}
+
+
+
+/**
+ * Profile tier level (PTL) helper
+ */
+Void TDbrEntropy::xCodeProfileTier(TComBitIf& bitstream, const ProfileTierLevel* ptl, const Bool /* bIsSubLayer */) {
+  xWriteCode(bitstream, ptl->getProfileSpace(), 2 , "profile_space");
+  xWriteFlag(bitstream, ptl->getTierFlag()==Level::HIGH, "tier_flag");
+  xWriteCode(bitstream, Int(ptl->getProfileIdc()), 5 , "profile_idc");
+
+  for(Int j = 0; j < 32; j++) {
+    xWriteFlag(bitstream, ptl->getProfileCompatibilityFlag(j), "profile_compatibility_flag[][j]");
+  }
+
+  xWriteFlag(bitstream, ptl->getProgressiveSourceFlag(), "progressive_source_flag");
+  xWriteFlag(bitstream, ptl->getInterlacedSourceFlag(), "interlaced_source_flag");
+  xWriteFlag(bitstream, ptl->getNonPackedConstraintFlag(), "non_packed_constraint_flag");
+  xWriteFlag(bitstream, ptl->getFrameOnlyConstraintFlag(), "frame_only_constraint_flag");
+
+  if (ptl->getProfileIdc() == Profile::MAINREXT || ptl->getProfileIdc() == Profile::HIGHTHROUGHPUTREXT) {
+    const UInt bitDepthConstraint = ptl->getBitDepthConstraint();
+    xWriteFlag(bitstream, bitDepthConstraint <= 12, "max_12bit_constraint_flag");
+    xWriteFlag(bitstream, bitDepthConstraint <= 10, "max_10bit_constraint_flag");
+    xWriteFlag(bitstream, bitDepthConstraint <= 8, "max_8bit_constraint_flag");
+
+    const ChromaFormat chromaFmtConstraint = ptl->getChromaFormatConstraint();
+    xWriteFlag(bitstream, chromaFmtConstraint == CHROMA_422 || chromaFmtConstraint == CHROMA_420 || chromaFmtConstraint == CHROMA_400, "max_422chroma_constraint_flag");
+    xWriteFlag(bitstream, chromaFmtConstraint == CHROMA_420 || chromaFmtConstraint == CHROMA_400, "max_420chroma_constraint_flag");
+    xWriteFlag(bitstream, chromaFmtConstraint == CHROMA_400, "max_monochrome_constraint_flag");
+
+    xWriteFlag(bitstream, ptl->getIntraConstraintFlag(), "intra_constraint_flag");
+    xWriteFlag(bitstream, ptl->getOnePictureOnlyConstraintFlag(), "one_picture_only_constraint_flag");
+    xWriteFlag(bitstream, ptl->getLowerBitRateConstraintFlag(), "lower_bit_rate_constraint_flag");
+    xWriteCode(bitstream, 0, 16, "reserved_zero_34bits[0..15]");
+    xWriteCode(bitstream, 0, 16, "reserved_zero_34bits[16..31]");
+    xWriteCode(bitstream, 0,  2, "reserved_zero_34bits[32..33]");
+  } else if (ptl->getProfileIdc() == Profile::MAIN10) {
+    xWriteCode(bitstream, 0x00, 7, "reserved_zero_7bits");
+    xWriteFlag(bitstream, ptl->getOnePictureOnlyConstraintFlag(), "one_picture_only_constraint_flag");
+    xWriteCode(bitstream, 0x0000, 16, "reserved_zero_35bits[0..15]");
+    xWriteCode(bitstream, 0x0000, 16, "reserved_zero_35bits[16..31]");
+    xWriteCode(bitstream, 0x0, 3, "reserved_zero_35bits[32..34]");
+  } else {
+    xWriteCode(bitstream, 0x0000, 16, "reserved_zero_43bits[0..15]");
+    xWriteCode(bitstream, 0x0000, 16, "reserved_zero_43bits[16..31]");
+    xWriteCode(bitstream, 0x000, 11, "reserved_zero_43bits[32..42]");
+  }
+
+  xWriteFlag(bitstream, false, "inbld_flag");
+}
+
+
+
 
 /**
   * Parameter sets and headers
@@ -159,7 +257,7 @@ Void TDbrEntropy::codeVPS(const TComVPS* pcVPS) {
 
   xWriteCode(bs, 0xffff, 16, "vps_reserved_0xffff_16bits");
 
-  codePTL(pcVPS->getPTL(), true, pcVPS->getMaxTLayers() - 1);
+  xCodePTL(bs, pcVPS->getPTL(), true, pcVPS->getMaxTLayers() - 1);
   const Bool subLayerOrderingInfoPresentFlag = 1;
   xWriteFlag(bs, subLayerOrderingInfoPresentFlag, "vps_sub_layer_ordering_info_present_flag");
 
@@ -209,15 +307,16 @@ Void TDbrEntropy::codeVPS(const TComVPS* pcVPS) {
         if (i > 0) {
           xWriteFlag(bs, pcVPS->getCprmsPresentFlag(i) ? 1 : 0, "cprms_present_flag[i]");
         }
-        codeHrdParameters(pcVPS->getHrdParameters(i), pcVPS->getCprmsPresentFlag(i), pcVPS->getMaxTLayers() - 1);
+        xCodeHrdParameters(bs, pcVPS->getHrdParameters(i), pcVPS->getCprmsPresentFlag(i), pcVPS->getMaxTLayers() - 1);
       }
     }
   }
 
   xWriteFlag(bs, 0, "vps_extension_flag");
 
-  //future extensions here..
-  xWriteRbspTrailingBits();
+  // Future extensions here..
+
+  xWriteRbspTrailingBits(bs);
 }
 
 

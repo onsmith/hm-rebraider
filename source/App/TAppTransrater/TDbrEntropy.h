@@ -178,10 +178,17 @@ private:
   Void xWriteUvlc(TComBitIf& bitstream, UInt uiCode, const string& name);
   Void xWriteSvlc(TComBitIf& bitstream, Int iCode, const string& name);
   Void xWriteFlag(TComBitIf& bitstream, UInt uiCode, const string& name);
-  UInt xConvertToUInt(Int iValue);
+  Void xWriteRbspTrailingBits(TComBitIf& bitstream);
+  UInt xConvertToUInt(Int iValue) const;
 
   // Codes hard parameters (for VPS)
   Void xCodeHrdParameters(TComBitIf& bitstream, const TComHRD *hrd, Bool commonInfPresentFlag, UInt maxNumSubLayersMinus1);
+
+  // Codes profile tier level (PTL) info (for VPS)
+  Void xCodePTL(TComBitIf& bitstream, const TComPTL* pcPTL, Bool profilePresentFlag, Int maxNumSubLayersMinus1);
+
+  // Profile tier level (PTL) helper
+  Void xCodeProfileTier(TComBitIf& bitstream, const ProfileTierLevel* ptl, const Bool bIsSubLayer);
 };
 
 
