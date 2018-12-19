@@ -33,22 +33,22 @@
 
 
 /**
- * \file     tramain.cpp
- * \project  TAppTransrater
- * \brief    Transrater application main
+ * \file     dbrmain.cpp
+ * \project  TAppDebraider
+ * \brief    Debraider application main
  */
 
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include "TAppTraTop.h"
+#include "TAppDbrTop.h"
 
 
 using std::printf;
 
 
-//! \ingroup TAppTransrater
+//! \ingroup TAppDebraider
 //! \{
 
 
@@ -61,19 +61,19 @@ int main(int argc, char* argv[]) {
   fprintf(stdout, NVM_BITS);
   fprintf(stdout, "\n");
 
-  // Create transrater
-  TAppDbrTop transrater;
+  // Create debraider
+  TAppDbrTop debraider;
 
   // Parse configuration
-  if (!transrater.parseCfg(argc, argv)) {
+  if (!debraider.parseCfg(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   // Capture starting time
   clock_t startTime = clock();
 
-  // Transrate video
-  transrater.transrate();
+  // Debraid video
+  debraider.transrate();
 
   // Capture ending time
   clock_t endTime = clock();
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
   // Report errors
   Int returnCode = EXIT_SUCCESS;
-  if (transrater.numDecodingErrorsDetected() != 0) {
+  if (debraider.numDecodingErrorsDetected() != 0) {
     printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
     return EXIT_FAILURE;
   }

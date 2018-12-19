@@ -74,7 +74,7 @@ Void TDbrTop::transcode(const InputNALUnit& inputNalu, OutputNALUnit& outputNalu
   }
 
   // Requantize the slice to achieve a target rate
-  xRequantizeSlice(encSlice);
+  //xRequantizeSlice(encSlice);
 
   // Entropy code the requantized slice into the output nal unit bitstream
   xEncodeSlice(encSlice, outputNalu.m_Bitstream);
