@@ -39,7 +39,7 @@
  */
 
 
-#pragma once 
+#pragma once
 
 
 #include "TLibCommon/TComSlice.h"

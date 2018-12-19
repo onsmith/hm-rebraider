@@ -175,11 +175,13 @@
     <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrCfg.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrTop.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\dbrmain.cpp" />
+    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrEntropy.cpp" />
     <ClCompile Include="..\..\source\App\TAppTransrater\TDbrTop.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrCfg.h" />
     <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrEntropy.h" />
     <ClInclude Include="..\..\source\App\TAppTransrater\TDbrTop.h" />
   </ItemGroup>
   <ItemGroup>
