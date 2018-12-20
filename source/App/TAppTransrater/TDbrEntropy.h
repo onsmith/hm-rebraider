@@ -43,6 +43,7 @@
 
 
 #include "TLibEncoder/TEncEntropy.h"
+#include "TLibEncoder/TEncCavlc.h"
 
 
 //! \ingroup TAppDebraider
@@ -51,12 +52,38 @@
 
 class TDbrEntropy : public TEncEntropyIf {
 protected:
-  // Here, the syntax elements used in hevc are grouped into classes. Each
-  //   class gets its own bitstream and therefore its own output file.
+  /**
+   * Decorates a context-adaptive variable-length code (cavlc) TEncEntropyIf
+   *   object
+   */
+  TEncCavlc cavlc;
+
+
+  /**
+   * The syntax elements used in hevc are grouped into classes for this class.
+   *   Each group gets its own bitstream and therefore its own output file.
+   */
+  // Bits for encoding video parameter sets (vps)
   TComBitIf* vps_bitstream;
+
+  // Bits for encoding sequence parameter sets (sps)
   TComBitIf* sps_bitstream;
+
+  // Bits for encoding picture parameter sets (pps)
   TComBitIf* pps_bitstream;
+
+  // Bits representing metadata of slice, including:
+  //   - Slice headers
+  //   - Slice endings
+  //   - WPP tile entry points
+  TComBitIf* slice_bitstream;
+
+  // Bits for encoding delta quality parameter (dqp)
+  TComBitIf* dqp_bitstream;
+
+  // Bits for encoding quantized dct coefficients
   TComBitIf* coeff_bitstream;
+
 
 public:
   // Default construcor
@@ -174,21 +201,23 @@ private:
   /**
    * Helper methods to write codes to the output bitstreams
    */
+  // Writes a codeword to a bitstream
   Void xWriteCode(TComBitIf& bitstream, UInt uiCode, UInt uiLength, const string& name);
+
+  // Writes an unsigned integer to a bitstream
   Void xWriteUvlc(TComBitIf& bitstream, UInt uiCode, const string& name);
+
+  // Writes an signed integer to a bitstream
   Void xWriteSvlc(TComBitIf& bitstream, Int iCode, const string& name);
+
+  // Writes a boolean flag to a bitstream
   Void xWriteFlag(TComBitIf& bitstream, UInt uiCode, const string& name);
+
+  // Writes aligning bits to a bitstream
   Void xWriteRbspTrailingBits(TComBitIf& bitstream);
+
+  // Converts a signed integer to an unsigned integer
   UInt xConvertToUInt(Int iValue) const;
-
-  // Codes hard parameters (for VPS)
-  Void xCodeHrdParameters(TComBitIf& bitstream, const TComHRD *hrd, Bool commonInfPresentFlag, UInt maxNumSubLayersMinus1);
-
-  // Codes profile tier level (PTL) info (for VPS)
-  Void xCodePTL(TComBitIf& bitstream, const TComPTL* pcPTL, Bool profilePresentFlag, Int maxNumSubLayersMinus1);
-
-  // Profile tier level (PTL) helper
-  Void xCodeProfileTier(TComBitIf& bitstream, const ProfileTierLevel* ptl, const Bool bIsSubLayer);
 };
 
 
