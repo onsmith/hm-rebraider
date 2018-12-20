@@ -26,6 +26,9 @@
     <ClCompile Include="..\..\source\App\TAppTransrater\TDbrEntropy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrCabac.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\App\TAppTransrater\TDbrTop.h">
@@ -38,6 +41,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\App\TAppTransrater\TDbrEntropy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrCabac.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

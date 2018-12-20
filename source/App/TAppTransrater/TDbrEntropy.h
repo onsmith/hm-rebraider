@@ -41,9 +41,11 @@
 
 #pragma once
 
+#include "TDbrCabac.h"
 
 #include "TLibEncoder/TEncEntropy.h"
 #include "TLibEncoder/TEncCavlc.h"
+#include "TLibEncoder/TEncSbac.h"
 
 
 //! \ingroup TAppDebraider
@@ -54,9 +56,22 @@ class TDbrEntropy : public TEncEntropyIf {
 protected:
   /**
    * Decorates a context-adaptive variable-length code (cavlc) TEncEntropyIf
-   *   object
+   *   object as well as a syntax-based binary arithmetic code (sbac) object.
+   *   Delegates to these objects for all methods required by the TEncEntropyIf
+   *   abstract class.
    */
   TEncCavlc cavlc;
+  TEncSbac  sbac;
+
+
+  /**
+   * Encapsulates a context-adaptive binary arithmetic code (cabac) object which
+   *   works as the middle man between the sbac object and the bitstream.
+   *   Usually, this object holds the cabac contexts and internal state, but
+   *   since this impelmentation just uses vlc for everything, there is no
+   *   arithmetic coding applied.
+   */
+  TDbrCabac cabac;
 
 
   /**
@@ -84,10 +99,74 @@ protected:
   // Bits for encoding quantized dct coefficients
   TComBitIf* coeff_bitstream;
 
+  // Bits for encoding motion vector prediction (mvp) index
+  TComBitIf* mvp_index_bitstream;
+
+  // Bits for encoding transquant bypass
+  TComBitIf* tq_bypass_bitstream;
+
+  // Bits for encoding inter prediction cu skip flag
+  TComBitIf* skip_flag_bitstream;
+
+  // Bits for encoding inter prediction cu merge flag
+  TComBitIf* merge_flag_bitstream;
+
+  // Bits for encoding inter prediction cu merge index
+  TComBitIf* merge_index_bitstream;
+
+  // Bits for encoding cu quadtree split flag
+  TComBitIf* split_flag_bitstream;
+
+  // Bits for encoding partition size
+  TComBitIf* part_size_bitstream;
+
+  // Bits for encoding prediction mode (inter vs intra)
+  TComBitIf* pred_mode_bitstream;
+
+  // Bits for encoding intra pulse code modulation (ipcm) info
+  TComBitIf* ipcm_bitstream;
+
+  // Bits for encoding transform subdivision flag
+  TComBitIf* tu_subdiv_flag_bitstream;
+
+  // Bits for encoding quadtree (qt) coded block flag (cbf)
+  TComBitIf* qt_cbf_bitstream;
+
+  // Bits for encoding intra prediction mode for luma samples
+  TComBitIf* intra_mode_luma_bitstream;
+
+  // Bits for encoding intra prediction mode for chroma samples
+  TComBitIf* intra_mode_chroma_bitstream;
+
+  // Bits for encoding inter prediction direction
+  TComBitIf* inter_dir_bitstream;
+
+  // Bits for encoding reference frame index
+  TComBitIf* ref_frame_index_bitstream;
+
+  // Bits for encoding motion vector deltas (mvd)
+  TComBitIf* mvd_bitstream;
+
+  // Bits for encoding cross component prediction
+  TComBitIf* cross_comp_pred_bitstream;
+
+  // Bits for encoding chroma qp adjust
+  TComBitIf* chroma_qp_adj_bitstream;
+
+  // Bits for encoding transform skip flag
+  TComBitIf* tu_skip_flag_bitstream;
+
+  // Bits for encoding sample adaptive offset (sao) in-loop filter block params
+  TComBitIf* sao_blk_param_bitstream;
+
+  // Bits for encoding residual differential pulse code modulation (rdpcm)
+  TComBitIf* rdpcm_bitstream;
+
+
 
 public:
-  // Default construcor
-  TDbrEntropy() = default;
+  // Default constructor passes the cabac object to the sbac object
+  TDbrEntropy();
 
   // Default destructor
   ~TDbrEntropy() = default;
@@ -129,65 +208,30 @@ public:
 
 
   /**
-   * 
+   * TODO: Write comments for these
    */
   Void codeTilesWPPEntryPoint(TComSlice* pSlice);
   Void codeTerminatingBit(UInt uilsLast);
   Void codeMVPIdx(TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList);
-
-
-  /**
-   * 
-   */
   Void codeCUTransquantBypassFlag(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeSkipFlag(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeMergeFlag(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeMergeIndex(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeSplitFlag(TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth);
-
-
-  /**
-   *
-   */
   Void codePartSize(TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth);
   Void codePredMode(TComDataCU* pcCU, UInt uiAbsPartIdx);
-
-
-  /**
-   *
-   */
   Void codeIPCMInfo(TComDataCU* pcCU, UInt uiAbsPartIdx);
-
-
-  /**
-   *
-   */
   Void codeTransformSubdivFlag(UInt uiSymbol, UInt uiCtx);
   Void codeQtCbf(TComTU &rTu, const ComponentID compID, const Bool lowestLevel);
   Void codeQtRootCbf(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeQtCbfZero(TComTU &rTu, const ChannelType chType);
   Void codeQtRootCbfZero();
   Void codeIntraDirLumaAng(TComDataCU* pcCU, UInt uiAbsPartIdx, Bool isMultiplePU);
-
-
-  /**
-   *
-   */
   Void codeIntraDirChroma(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeInterDir(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeRefFrmIdx(TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList);
   Void codeMvd(TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList);
-
-
-  /**
-   *
-   */
   Void codeCrossComponentPrediction(TComTU &rTu, ComponentID compID);
-
-
-  /**
-   *
-   */
   Void codeDeltaQP(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeChromaQpAdjustment(TComDataCU* pcCU, UInt uiAbsPartIdx);
   Void codeCoeffNxN(TComTU &rTu, TCoeff* pcCoef, const ComponentID compID);
