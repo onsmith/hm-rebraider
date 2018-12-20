@@ -72,7 +72,7 @@ private:
   // Internal decoder object
   TDecTop m_decoder;
 
-  // Internal encoder object
+  // Internal debraiding transcoder object
   TDbrTop m_transcoder;
 
   // The picture order count (POC) of the last frame that was output

@@ -42,6 +42,7 @@
 #pragma once
 
 #include "TDbrCabac.h"
+#include "TDbrStreamSet.h"
 
 #include "TLibEncoder/TEncEntropy.h"
 #include "TLibEncoder/TEncCavlc.h"
@@ -75,92 +76,9 @@ protected:
 
 
   /**
-   * The syntax elements used in hevc are grouped into classes for this class.
-   *   Each group gets its own bitstream and therefore its own output file.
+   * The output bitstreams are passed in as a TDbrStreamSet object
    */
-  // Bits for encoding video parameter sets (vps)
-  TComBitIf* vps_bitstream;
-
-  // Bits for encoding sequence parameter sets (sps)
-  TComBitIf* sps_bitstream;
-
-  // Bits for encoding picture parameter sets (pps)
-  TComBitIf* pps_bitstream;
-
-  // Bits representing metadata of slice, including:
-  //   - Slice headers
-  //   - Slice endings
-  //   - WPP tile entry points
-  TComBitIf* slice_bitstream;
-
-  // Bits for encoding delta quality parameter (dqp)
-  TComBitIf* dqp_bitstream;
-
-  // Bits for encoding quantized dct coefficients
-  TComBitIf* coeff_bitstream;
-
-  // Bits for encoding motion vector prediction (mvp) index
-  TComBitIf* mvp_index_bitstream;
-
-  // Bits for encoding transquant bypass
-  TComBitIf* tq_bypass_bitstream;
-
-  // Bits for encoding inter prediction cu skip flag
-  TComBitIf* skip_flag_bitstream;
-
-  // Bits for encoding inter prediction cu merge flag
-  TComBitIf* merge_flag_bitstream;
-
-  // Bits for encoding inter prediction cu merge index
-  TComBitIf* merge_index_bitstream;
-
-  // Bits for encoding cu quadtree split flag
-  TComBitIf* split_flag_bitstream;
-
-  // Bits for encoding partition size
-  TComBitIf* part_size_bitstream;
-
-  // Bits for encoding prediction mode (inter vs intra)
-  TComBitIf* pred_mode_bitstream;
-
-  // Bits for encoding intra pulse code modulation (ipcm) info
-  TComBitIf* ipcm_bitstream;
-
-  // Bits for encoding transform subdivision flag
-  TComBitIf* tu_subdiv_flag_bitstream;
-
-  // Bits for encoding quadtree (qt) coded block flag (cbf)
-  TComBitIf* qt_cbf_bitstream;
-
-  // Bits for encoding intra prediction mode for luma samples
-  TComBitIf* intra_mode_luma_bitstream;
-
-  // Bits for encoding intra prediction mode for chroma samples
-  TComBitIf* intra_mode_chroma_bitstream;
-
-  // Bits for encoding inter prediction direction
-  TComBitIf* inter_dir_bitstream;
-
-  // Bits for encoding reference frame index
-  TComBitIf* ref_frame_index_bitstream;
-
-  // Bits for encoding motion vector deltas (mvd)
-  TComBitIf* mvd_bitstream;
-
-  // Bits for encoding cross component prediction
-  TComBitIf* cross_comp_pred_bitstream;
-
-  // Bits for encoding chroma qp adjust
-  TComBitIf* chroma_qp_adj_bitstream;
-
-  // Bits for encoding transform skip flag
-  TComBitIf* tu_skip_flag_bitstream;
-
-  // Bits for encoding sample adaptive offset (sao) in-loop filter block params
-  TComBitIf* sao_blk_param_bitstream;
-
-  // Bits for encoding residual differential pulse code modulation (rdpcm)
-  TComBitIf* rdpcm_bitstream;
+  TDbrStreamSet* bitstreams;
 
 
 
@@ -170,6 +88,13 @@ public:
 
   // Default destructor
   ~TDbrEntropy() = default;
+
+
+  /**
+   * Bitstream set management
+   */
+  Void setBitstreams(TDbrStreamSet* bitstreams);
+  TDbrStreamSet* getBitstreams();
 
 
   /**

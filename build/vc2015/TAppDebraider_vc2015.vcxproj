@@ -172,21 +172,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrCfg.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TAppDbrTop.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\dbrmain.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrCabac.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrEntropy.cpp" />
-    <ClCompile Include="..\..\source\App\TAppTransrater\TDbrTop.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrCfg.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TAppDbrTop.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrCabac.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrEntropy.h" />
-    <ClInclude Include="..\..\source\App\TAppTransrater\TDbrTop.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="TAppCommon_vc2015.vcxproj">
       <Project>{d1e8a1c2-15db-4c94-80e8-4f70cf0a2dc5}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
@@ -207,6 +192,25 @@
       <Project>{5280c25a-d316-4be7-ae50-29d72108624f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\source\App\TAppDebraider\dbrmain.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TAppDbrCfg.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TAppDbrTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrCabac.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrEntropy.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrStreamSet.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppDebraider\TTraPictureBuffer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\source\App\TAppDebraider\TAppDbrCfg.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TAppDbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrCabac.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrEntropy.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrStreamSet.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppDebraider\TTraPictureBuffer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
