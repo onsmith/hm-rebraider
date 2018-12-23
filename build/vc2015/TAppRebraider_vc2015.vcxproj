@@ -19,8 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>TAppDebraider</ProjectName>
-    <ProjectGuid>{84D41F6B-FEB4-48AA-8268-FC0BF37583C3}</ProjectGuid>
+    <ProjectName>TAppRebraider</ProjectName>
+    <ProjectGuid>{FA20D435-1CC3-44DD-8FC3-5F8D0FD47163}</ProjectGuid>
     <RootNamespace>TAppDecoder</RootNamespace>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
@@ -194,25 +194,25 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\source\App\TAppDebraider\dbrmain.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TAppDbrCfg.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TAppDbrTop.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrBinCABAC.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrCavlc.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrSbac.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrStreamSet.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TDbrTop.cpp" />
-    <ClCompile Include="..\..\source\App\TAppDebraider\TTraPictureBuffer.cpp" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TAppRbrCfg.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TAppRbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrBinVLC.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrCavlc.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrSbac.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrStreamSet.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrTop.h" />
+    <ClInclude Include="..\..\source\App\TAppRebraider\TRbrPictureBuffer.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\source\App\TAppDebraider\TAppDbrCfg.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TAppDbrTop.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrBinCABAC.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrCavlc.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrSbac.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrStreamSet.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TDbrTop.h" />
-    <ClInclude Include="..\..\source\App\TAppDebraider\TTraPictureBuffer.h" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\rbrmain.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TAppRbrCfg.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TAppRbrTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrBinVLC.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrCavlc.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrSbac.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrStreamSet.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrTop.cpp" />
+    <ClCompile Include="..\..\source\App\TAppRebraider\TRbrPictureBuffer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

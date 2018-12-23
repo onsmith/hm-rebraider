@@ -33,65 +33,39 @@
 
 
 /**
- * \file     dbrmain.cpp
- * \project  TAppDebraider
- * \brief    Debraider application main
+ *  \file     TDbrBinCABAC.h
+ *  \project  TAppDebraider
+ *  \brief    Debraider CABAC entropy class header
  */
 
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include "TAppDbrTop.h"
+#pragma once
 
+#include "TDbrStreamSet.h"
 
-using std::printf;
+#include "TLibDecoder/TDecBinCoderCABAC.h"
+#include "TLibEncoder/SyntaxElementWriter.h"
 
 
 //! \ingroup TAppDebraider
 //! \{
 
 
-int main(int argc, char* argv[]) {
-  // Output version information
-  fprintf(stdout, "\n");
-  fprintf(stdout, "HM software: Transrater Version [%s] (including RExt)", NV_VERSION);
-  fprintf(stdout, NVM_ONOS );
-  fprintf(stdout, NVM_COMPILEDBY);
-  fprintf(stdout, NVM_BITS);
-  fprintf(stdout, "\n");
+class TDbrBinCABAC : public TDecBinCABAC, protected SyntaxElementWriter {
+public:
+  // Getter/setter for the output bitstream
+  TComBitIf* getOutputBitstream();
+  Void setOutputBitstream(TComBitIf* outputBitstream);
 
-  // Create debraider
-  TAppDbrTop debraider;
 
-  // Parse configuration
-  if (!debraider.parseCfg(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  // Capture starting time
-  clock_t startTime = clock();
-
-  // Debraid video
-  debraider.debraid();
-
-  // Capture ending time
-  clock_t endTime = clock();
-
-  // Output timing information
-  Double elapsedTime = (Double) (endTime - startTime) / CLOCKS_PER_SEC;
-  printf("\n Total Time: %12.3f sec.\n", elapsedTime);
-
-  // Report errors
-  Int returnCode = EXIT_SUCCESS;
-  if (debraider.numDecodingErrorsDetected() != 0) {
-    printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
-    return EXIT_FAILURE;
-  }
-
-  // Terminate
-  return returnCode;
-}
+  // Override virtual TDecBinIf methods and make them output bits to debraided
+  //   bitstream
+  Void decodeBin(UInt& ruiBin, ContextModel& rcCtxModel);
+  Void decodeBinEP(UInt& ruiBin);
+  Void decodeBinsEP(UInt& ruiBins, Int numBins);
+  Void decodeBinTrm(UInt& ruiBin);
+  Void xReadPCMCode(UInt uiLength, UInt& ruiCode);
+};
 
 
 //! \}

@@ -33,43 +33,43 @@
 
 
 /**
- *  \file     TDbrCabac.h
- *  \project  TAppDebraider
- *  \brief    Cabac encoder class header
+ *  \file     TRbrBinVLC.h
+ *  \project  TAppRebraider
+ *  \brief    VLC binary value encoder class header
  */
 
 
 #pragma once
 
 
-#include "TLibEncoder/TEncBinCoder.h"
+#include "TLibDecoder/TDecBinCoder.h"
 
 
-//! \ingroup TAppDebraider
+//! \ingroup TAppRebraider
 //! \{
 
 
-class TDbrCabac : public TEncBinIf {
+class TRbrBinVLC : public TDecBinIf {
 private:
-  // Bitstream to receive encoded output
-  TComBitIf* bitstream;
+  // Input bitstream from which to read bits
+  TComInputBitstream* bitstream;
 
 
 public:
   // Default constructor
-  TDbrCabac() = default;
+  TRbrBinVLC() = default;
 
   // Default destructor
-  ~TDbrCabac() = default;
+  ~TRbrBinVLC() = default;
 
-  // Sets the underlying bitstream
-  Void init(TComBitIf* pcTComBitIf);
+  // Sets the underlying TComInputBitstream
+  Void init(TComInputBitstream* pcTComBitstream);
 
-  // Removes the underlying bitstream
+  // Removes the underlying TComInputBitstream
   Void uninit();
 
-  // Initializes the cabac internal state
-  // Note: This method does nothing since this class is not actually a cabac
+  // Initializes the internal state
+  // Note: This method does nothing since there is no internal state
   Void start();
 
   // Writes any buffered bits to the output stream, injecting bits as necessary
@@ -77,48 +77,33 @@ public:
   // Note: This method does nothing since this class is not actually a cabac
   Void finish();
 
-  // Copies internal cabac state from another cabac encoder class
-  // Note: This method does nothing since this class is not actually a cabac
-  Void copyState(const TEncBinIf* pcTEncBinIf);
+  // Reads a PCM code
+  Void xReadPCMCode(UInt uiLength, UInt& ruiCode);
 
-  // Writes a terminating character to the bitstream, finishes the stream, and
-  //   resets the stream
-  // Note: This method does nothing since this class is not actually a cabac
-  Void flush();
+  // Decodes a single bit
+  Void decodeBin(UInt& ruiBin, ContextModel& rcCtxModel);
 
-  // Resets the cabac internal state
-  Void resetBac();
+  // Decodes a single bit when a zero and a one are equiprobable (ep)
+  Void decodeBinEP(UInt& ruiBin);
 
-  // Encodes PCM alignment zero bits
-  // Note: This method does nothing since this class is not actually a cabac
-  Void encodePCMAlignBits();
-
-  // Writes a PCM code
-  Void xWritePCMCode(UInt uiCode, UInt uiLength);
-
-  // Resets the internal bit buffer
-  // Note: This method does nothing since this class is not actually a cabac
-  Void resetBits();
-
-  // Gets the number of bits written to the bitstream
-  UInt getNumWrittenBits();
-
-  // Encodes a single bit
-  Void encodeBin(UInt uiBin, ContextModel& rcCtxModel);
-
-  // Encodes a single bit such that a zero and a one are equiprobable (ep)
-  Void encodeBinEP(UInt uiBin);
-
-  // Encodes multiple bits such that zeros and ones are equiprobable (ep)
-  Void encodeBinsEP(UInt uiBins, Int numBins);
-
-  // Encodes a terminating character to the bitstream
-  // Note: This method does nothing since this class is not actually a cabac
-  Void encodeBinTrm(UInt uiBin);
+  // Decodes multiple bits when zeros and ones are equiprobable (ep)
+  Void decodeBinsEP(UInt& ruiBins, Int numBins);
 
   // Aligns the cabac interval range
   // Note: This method does nothing since this class is not actually a cabac
   Void align();
+
+  // Decodes a terminating character from the bitstream
+  Void decodeBinTrm(UInt& ruiBin);
+
+  // Copies internal state from another decoder object
+  // Note: This method does nothing since there is no internal state
+  Void copyState(const TDecBinIf* pcTDecBinIf);
+
+  // These methods throw an error with this implementation of TDecBinIf, since
+  //   it isn't backed by a TDecBinCABAC.
+        TDecBinCABAC* getTDecBinCABAC();
+  const TDecBinCABAC* getTDecBinCABAC() const;
 };
 
 

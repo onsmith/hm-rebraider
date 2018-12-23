@@ -33,22 +33,22 @@
 
 
 /**
- * \file     dbrmain.cpp
- * \project  TAppDebraider
- * \brief    Debraider application main
+ * \file     rbrmain.cpp
+ * \project  TAppRebraider
+ * \brief    Rebraider application main
  */
 
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include "TAppDbrTop.h"
+#include "TAppRbrTop.h"
 
 
 using std::printf;
 
 
-//! \ingroup TAppDebraider
+//! \ingroup TAppRebraider
 //! \{
 
 
@@ -61,19 +61,19 @@ int main(int argc, char* argv[]) {
   fprintf(stdout, NVM_BITS);
   fprintf(stdout, "\n");
 
-  // Create debraider
-  TAppDbrTop debraider;
+  // Create rebraider
+  TAppRbrTop rebraider;
 
   // Parse configuration
-  if (!debraider.parseCfg(argc, argv)) {
+  if (!rebraider.parseCfg(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   // Capture starting time
   clock_t startTime = clock();
 
-  // Debraid video
-  debraider.debraid();
+  // Rebraid video
+  rebraider.rebraid();
 
   // Capture ending time
   clock_t endTime = clock();
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
   // Report errors
   Int returnCode = EXIT_SUCCESS;
-  if (debraider.numDecodingErrorsDetected() != 0) {
+  if (rebraider.numDecodingErrorsDetected() != 0) {
     printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
     return EXIT_FAILURE;
   }

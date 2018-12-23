@@ -84,12 +84,12 @@ public:
   Void  parseTerminatingBit       ( UInt& ruiBit );
   Void  parseRemainingBytes       ( Bool noTrailingBytesExpected);
   Void  parseMVPIdx               ( Int& riMVPIdx          );
-  Void  parseSaoMaxUvlc           ( UInt& val, UInt maxSymbol );
-  Void  parseSaoMerge             ( UInt&  ruiVal   );
-  Void  parseSaoTypeIdx           ( UInt&  ruiVal  );
-  Void  parseSaoUflc              ( UInt uiLength, UInt& ruiVal     );
-  Void parseSAOBlkParam           (SAOBlkParam& saoBlkParam, Bool* sliceEnabled, Bool leftMergeAvail, Bool aboveMergeAvail, const BitDepths &bitDepths);
-  Void parseSaoSign               (UInt& val);
+  virtual Void  parseSaoMaxUvlc   ( UInt& val, UInt maxSymbol );
+  virtual Void  parseSaoMerge     ( UInt&  ruiVal   );
+  virtual Void  parseSaoTypeIdx   ( UInt&  ruiVal  );
+  virtual Void  parseSaoUflc      ( UInt uiLength, UInt& ruiVal     );
+  virtual Void parseSAOBlkParam   (SAOBlkParam& saoBlkParam, Bool* sliceEnabled, Bool leftMergeAvail, Bool aboveMergeAvail, const BitDepths &bitDepths);
+  virtual Void parseSaoSign       (UInt& val);
 
 private:
 #if RExt__DECODER_DEBUG_BIT_STATISTICS
@@ -135,11 +135,11 @@ public:
 
   Void parseIPCMInfo      ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth);
 
-  Void parseLastSignificantXY( UInt& uiPosLastX, UInt& uiPosLastY, Int width, Int height, ComponentID component, UInt uiScanIdx );
+  virtual Void parseLastSignificantXY( UInt& uiPosLastX, UInt& uiPosLastY, Int width, Int height, ComponentID component, UInt uiScanIdx );
   Void parseCoeffNxN      ( class TComTU &rTu, ComponentID compID  );
   Void parseTransformSkipFlags ( class TComTU &rTu, ComponentID component );
 
-  Void  parseScalingList ( TComScalingList* /*scalingList*/ ) {}
+  virtual Void  parseScalingList ( TComScalingList* /*scalingList*/ ) {}
 
   Void  parseExplicitRdpcmMode( TComTU &rTu, ComponentID compID );
 

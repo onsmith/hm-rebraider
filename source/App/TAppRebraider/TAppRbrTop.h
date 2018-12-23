@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TAppDbrTop.h
- *  \project  TAppDebraider
- *  \brief    Debraider application class header
+ *  \file     TAppRbrTop.h
+ *  \project  TAppRebraider
+ *  \brief    Rebraider application class header
  */
 
 
@@ -53,9 +53,9 @@
 #include "TLibCommon/TComPicYuv.h"
 #include "TLibDecoder/TDecTop.h"
 #include "TLibEncoder/TEncTop.h"
-#include "TAppDbrCfg.h"
+#include "TAppRbrCfg.h"
 
-#include "TDbrTop.h"
+#include "TRbrTop.h"
 
 
 using std::ifstream;
@@ -63,14 +63,17 @@ using std::ofstream;
 using std::ostream;
 
 
-//! \ingroup TAppDebraider
+//! \ingroup TAppRebraider
 //! \{
 
 
-class TAppDbrTop : public TAppDbrCfg {
+class TAppRbrTop : public TAppRbrCfg {
 private:
   // Internal decoder object
   TDecTop m_decoder;
+
+  // Internal debraiding transcoder object
+  TRbrTop m_transcoder;
 
   // The picture order count (POC) of the last frame that was output
   Int m_lastOutputPOC;
@@ -78,13 +81,16 @@ private:
   // Output stream for reconstructed source YUV frames
   TVideoIOYuv m_decodedYUVOutputStream;
 
+  // Holds transrated nal units for the current access unit
+  AccessUnit m_currentAccessUnit;
+
 
 public:
   // Default constructor
-  TAppDbrTop();
+  TAppRbrTop();
 
   // Performs transrating
-  Void debraid();
+  Void rebraid();
 
   // Gets the number of decoding errors detected
   UInt numDecodingErrorsDetected() const;
@@ -92,8 +98,11 @@ public:
 
 protected:
   /**
-   * Configuration of decoder object
+   * Configuration of encoder and decoder objects
    */
+
+  // Transfers the current configuration to the encoder object
+  Void xConfigTranscoder();
 
   // Transfers the current configuration to the decoder object
   Void xConfigDecoder();
@@ -106,6 +115,9 @@ protected:
   // Opens an ifstream for reading the source hevc bitstream
   Void xOpenInputStream(ifstream& stream) const;
 
+  // Opens an ofstream for writing the transrated hevc bitstream
+  Void xOpenOutputStream(ofstream& stream) const;
+
 
   /**
    * Access Unit management
@@ -113,6 +125,10 @@ protected:
 
   // Checks if the given nal unit signals the start of a new access unit
   Bool xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const;
+
+  // Writes the current access unit to the given bitstream and resets the
+  //   current access unit list
+  Void xFlushAccessUnit(ostream& stream);
 
 
   /**
@@ -127,6 +143,9 @@ protected:
 
   // Overwrites the default configuration for output bit depth
   Void xSetOutputBitDepths(const BitDepths& bitDepths);
+
+  // Re-encodes a NAL unit
+  Void xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu);
 
 
   /**

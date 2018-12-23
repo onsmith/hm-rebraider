@@ -102,22 +102,22 @@ protected:
 #endif
 
 #if RExt__DECODER_DEBUG_BIT_STATISTICS || ENC_DEC_TRACE
-  Void  xReadCode    ( UInt   length, UInt& val, const TChar *pSymbolName );
-  Void  xReadUvlc    ( UInt&  val, const TChar *pSymbolName );
-  Void  xReadSvlc    ( Int&   val, const TChar *pSymbolName );
-  Void  xReadFlag    ( UInt&  val, const TChar *pSymbolName );
+  virtual Void  xReadCode    ( UInt   length, UInt& val, const TChar *pSymbolName );
+  virtual Void  xReadUvlc    ( UInt&  val, const TChar *pSymbolName );
+  virtual Void  xReadSvlc    ( Int&   val, const TChar *pSymbolName );
+  virtual Void  xReadFlag    ( UInt&  val, const TChar *pSymbolName );
 #else
-  Void  xReadCode    ( UInt   length, UInt& val );
-  Void  xReadUvlc    ( UInt&  val );
-  Void  xReadSvlc    ( Int&   val );
-  Void  xReadFlag    ( UInt&  val );
+  virtual Void  xReadCode    ( UInt   length, UInt& val );
+  virtual Void  xReadUvlc    ( UInt&  val );
+  virtual Void  xReadSvlc    ( Int&   val );
+  virtual Void  xReadFlag    ( UInt&  val );
 #endif
 public:
   Void  setBitstream ( TComInputBitstream* p )   { m_pcBitstream = p; }
   TComInputBitstream* getBitstream() { return m_pcBitstream; }
 
 protected:
-  Void xReadRbspTrailingBits();
+  virtual Void xReadRbspTrailingBits();
 };
 
 class AUDReader: public SyntaxElementParser

@@ -38,6 +38,10 @@
 #ifndef __TDECTOP__
 #define __TDECTOP__
 
+#include "../App/TAppDebraider/TDbrCavlc.h"
+#include "../App/TAppDebraider/TDbrSbac.h"
+#include "../App/TAppDebraider/TDbrBinCABAC.h"
+
 #include "TLibCommon/CommonDef.h"
 #include "TLibCommon/TComList.h"
 #include "TLibCommon/TComPicYuv.h"
@@ -85,9 +89,15 @@ private:
   TDecSlice               m_cSliceDecoder;
   TDecCu                  m_cCuDecoder;
   TDecEntropy             m_cEntropyDecoder;
-  TDecCavlc               m_cCavlcDecoder;
-  TDecSbac                m_cSbacDecoder;
-  TDecBinCABAC            m_cBinCABAC;
+
+  //TDecCavlc               m_cCavlcDecoder;
+  //TDecSbac                m_cSbacDecoder;
+  //TDecBinCABAC            m_cBinCABAC;
+
+  TDbrCavlc               m_cCavlcDecoder;
+  TDbrSbac                m_cSbacDecoder;
+  TDbrBinCABAC            m_cBinCABAC;
+
   SEIReader               m_seiReader;
   TComLoopFilter          m_cLoopFilter;
   TComSampleAdaptiveOffset m_cSAO;
@@ -131,6 +141,10 @@ public:
 
   Void  create  ();
   Void  destroy ();
+  
+  TDbrCavlc&    getCavlcDecoder() { return m_cCavlcDecoder; }
+  TDbrSbac&     getSbacDecoder()  { return m_cSbacDecoder;  }
+  TDbrBinCABAC& getCabacReader()  { return m_cBinCABAC;     }
 
   Void setDecodedPictureHashSEIEnabled(Int enabled) { m_cGopDecoder.setDecodedPictureHashSEIEnabled(enabled); }
 #if MCTS_ENC_CHECK

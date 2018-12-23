@@ -181,7 +181,7 @@ public:
 
 
 #if DECODER_PARTIAL_CONFORMANCE_CHECK == 0
-  static inline std::ostream &getStream()  { return std::cout; }
+  static inline std::ostream &getBitstream()  { return std::cout; }
 
   static inline Void finishWarningReport() { }
 
@@ -191,7 +191,7 @@ public:
 #else
 
 
-  static inline std::ostream &getStream()
+  static inline std::ostream &getBitstream()
   {
 #if DECODER_PARTIAL_CONFORMANCE_CHECK == 1
     std::cout << "WARNING: Conformance failure - ";
@@ -214,7 +214,7 @@ public:
   {
     if (val<minValInclusive || val>maxValInclusive)
     {
-      getStream() << name << " must be in the range of " << minValInclusive << " to " << maxValInclusive << " (inclusive) - decoded value of " << val << "\n";
+      getBitstream() << name << " must be in the range of " << minValInclusive << " to " << maxValInclusive << " (inclusive) - decoded value of " << val << "\n";
       finishWarningReport();
     }
   }

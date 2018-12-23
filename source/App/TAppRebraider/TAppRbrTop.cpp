@@ -33,9 +33,9 @@
 
 
 /**
- *  \file     TAppDbrTop.cpp
- *  \project  TAppDebraider
- *  \brief    Debraider application class implementation
+ *  \file     TAppRbrTop.cpp
+ *  \project  TAppRebraider
+ *  \brief    Rebraider application class implementation
  */
 
 
@@ -45,8 +45,8 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include "TAppDbrTop.h"
-#include "TDbrStreamSet.h"
+#include "TAppRbrTop.h"
+#include "TRbrStreamSet.h"
 
 #include "TLibDecoder/AnnexBread.h"
 #include "TLibDecoder/NALread.h"
@@ -58,14 +58,14 @@
 #endif
 
 
-//! \ingroup TAppDebraider
+//! \ingroup TAppRebraider
 //! \{
 
 
 /**
  * Default constructor
  */
-TAppDbrTop::TAppDbrTop() :
+TAppRbrTop::TAppRbrTop() :
   m_lastOutputPOC(-MAX_INT) {
 }
 
@@ -73,20 +73,20 @@ TAppDbrTop::TAppDbrTop() :
 /**
  * Gets the number of decoding errors detected
  */
-UInt TAppDbrTop::numDecodingErrorsDetected() const {
+UInt TAppRbrTop::numDecodingErrorsDetected() const {
   return m_decoder.getNumberOfChecksumErrorsDetected();
 }
 
 
 /**
- * Main debraid processing function. Performs the following steps:
+ * Main rebraid processing function. Performs the following steps:
  *   1. Opens the input and output bitstream files
  *   2. Creates encoder and decoder objects
  *   3. Initializes encoder and decoder using defined configuration
- *   4. Until the end of the bitstream, decode and debraid video frames
+ *   4. Until the end of the bitstream, decode and rebraid video frames
  *   5. Destroy the internal encoder and decoder objects
  */
-Void TAppDbrTop::debraid() {
+Void TAppRbrTop::rebraid() {
   // Picture order count
   Int poc;
 
@@ -99,19 +99,17 @@ Void TAppDbrTop::debraid() {
   InputByteStream inputByteStream(inputStream);
 
   // Open output h265 bitstream for writing transcoded video
-  TDbrStreamSet outputStreams;
-  outputStreams.open(m_outputFileName);
+  ofstream outputStream;
+  xOpenOutputStream(outputStream);
 
   // Reset decoded yuv output stream
   if (m_decodedYUVOutputStream.isOpen()) {
     m_decodedYUVOutputStream.close();
   }
 
-  // Copy decoding configuration to the decoder
-  m_decoder.getCavlcDecoder().setBitstreams(&outputStreams);
-  m_decoder.getSbacDecoder().setBitstreams(&outputStreams);
-  m_decoder.getSbacDecoder().setCabacReader(&m_decoder.getCabacReader());
+  // Copy transcoding configuration to the transcoder and decoder
   xConfigDecoder();
+  xConfigTranscoder();
 
   // Adjust the last output POC index if seeking is required before decoding
   m_lastOutputPOC += m_iSkipFrame;
@@ -160,15 +158,38 @@ Void TAppDbrTop::debraid() {
         m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
       );
 
+      // Create an output bitstream set to store the debraided data
+      TRbrStreamSet outputStreams;
+
+      // Create an output NAL unit to store the reencoded data
+      OutputNALUnit reencodedNalu(
+        nalu.m_nalUnitType,
+        nalu.m_temporalId,
+        nalu.m_nuhLayerId
+      );
+
       // Call decoding function
       if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
         wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
+        if (!wasNewPictureFound) {
+          xEncodeUnit(nalu, reencodedNalu);
+        }
+      } else {
+        m_transcoder.transcode(nalu, reencodedNalu);
       }
 
-      // Flush and clear the bitstreams
+      // Add the new NAL unit to the current access unit
       if (!wasNewPictureFound) {
-        outputStreams.flush();
-        outputStreams.clear();
+        m_currentAccessUnit.push_back(new NALUnitEBSP(reencodedNalu));
+        
+        // TODO: Technically, it's probably better to wait for a new access unit
+        //   signal before flushing the access unit, but for now we will flush
+        xFlushAccessUnit(outputStream);
+
+        // Flush access unit
+        //if (xIsFirstNalUnitOfNewAccessUnit(nalu)) {
+        //  xFlushAccessUnit(outputStream);
+        //}
       }
     }
 
@@ -258,7 +279,7 @@ Void TAppDbrTop::debraid() {
   }
 
   // Send any remaining pictures to output
-  //xFlushDebraidedStreams(outputStream);
+  //xFlushAccessUnit(outputStream);
   xFlushPictureBuffer(dpb);
 
   // Free decoder resources
@@ -270,7 +291,7 @@ Void TAppDbrTop::debraid() {
 /**
  * Helper method to open an ifstream for reading the source hevc bitstream
  */
-Void TAppDbrTop::xOpenInputStream(ifstream& stream) const {
+Void TAppRbrTop::xOpenInputStream(ifstream& stream) const {
   stream.open(
     m_inputFileName.c_str(),
     ifstream::in | ifstream::binary
@@ -288,9 +309,29 @@ Void TAppDbrTop::xOpenInputStream(ifstream& stream) const {
 
 
 /**
+ * Helper method to open an ofstream for writing the transrated hevc bitstream
+ */
+Void TAppRbrTop::xOpenOutputStream(ofstream& stream) const {
+  stream.open(
+    m_outputFileName.c_str(),
+    fstream::binary | fstream::out
+  );
+
+  if (!stream.is_open() || !stream.good()) {
+    fprintf(
+      stderr,
+      "\nfailed to open bitstream file `%s' for writing\n",
+      m_outputFileName.c_str()
+    );
+    exit(EXIT_FAILURE);
+  }
+}
+
+
+/**
  * Overwrites the default configuration for output bit depth
  */
-Void TAppDbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
+Void TAppRbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
   for (UInt c = 0; c < MAX_NUM_CHANNEL_TYPE; c++) {
     if (m_outputBitDepth[c] == 0) {
       m_outputBitDepth[c] = bitDepths.recon[c];
@@ -300,9 +341,16 @@ Void TAppDbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
 
 
 /**
+ * Transfers the current configuration to the encoder object
+ */
+Void TAppRbrTop::xConfigTranscoder() {
+}
+
+
+/**
  * Transfers the current configuration to the decoder object
  */
-Void TAppDbrTop::xConfigDecoder() {
+Void TAppRbrTop::xConfigDecoder() {
   // Reset decoder
   m_decoder.destroy();
   m_decoder.create();
@@ -328,7 +376,7 @@ Void TAppDbrTop::xConfigDecoder() {
  *
  * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppDbrTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
+Void TAppRbrTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
   if (dpb == nullptr || dpb->empty()) {
     return;
   }
@@ -488,7 +536,7 @@ Void TAppDbrTop::xDisplayDecodedFrames(TComList<TComPic*>* dpb) {
  *
  * \param dpb  Decoded picture buffer, sorted in increasing POC order
  */
-Void TAppDbrTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
+Void TAppRbrTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
   if (dpb == nullptr || dpb->empty()) {
     return;
   }
@@ -596,7 +644,7 @@ Void TAppDbrTop::xFlushPictureBuffer(TComList<TComPic*>* dpb) {
 /**
  * Writes a raw reconstructed frame to the output bitstream.
  */
-Void TAppDbrTop::xWriteFrameToOutput(TComPic* frame) {
+Void TAppRbrTop::xWriteFrameToOutput(TComPic* frame) {
   if (m_decodedYUVOutputStream.isOpen()) {
     const Window &conf    = frame->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? frame->getDefDisplayWindow() : Window());
@@ -618,7 +666,7 @@ Void TAppDbrTop::xWriteFrameToOutput(TComPic* frame) {
 /**
  * Writes a raw reconstructed interlaced frame to the output bitstream.
  */
-Void TAppDbrTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
+Void TAppRbrTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
   if (m_decodedYUVOutputStream.isOpen()) {
     const Window& conf    = field1->getConformanceWindow();
     const Window  defDisp = (m_respectDefDispWindow ? field1->getDefDisplayWindow() : Window());
@@ -641,7 +689,7 @@ Void TAppDbrTop::xWriteFrameToOutput(TComPic* field1, TComPic* field2) {
 /**
  * Checks whether a given layerId should be decoded.
  */
-Bool TAppDbrTop::xWillDecodeLayer(Int layerId) const {
+Bool TAppRbrTop::xWillDecodeLayer(Int layerId) const {
   if (xWillDecodeAllLayers()) {
     return true;
   }
@@ -659,8 +707,117 @@ Bool TAppDbrTop::xWillDecodeLayer(Int layerId) const {
 /**
  * Checks whether all layerIds should be decoded.
  */
-Bool TAppDbrTop::xWillDecodeAllLayers() const {
+Bool TAppRbrTop::xWillDecodeAllLayers() const {
   return (m_targetDecLayerIdSet.size() == 0);
+}
+
+
+/**
+ * Encodes a decoded NAL unit
+ */
+Void TAppRbrTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
+  switch (sourceNalu.m_nalUnitType) {
+    case NAL_UNIT_VPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
+      break;
+
+    case NAL_UNIT_SPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getSPS());
+      break;
+
+    case NAL_UNIT_PPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getPPS());
+      break;
+
+    case NAL_UNIT_PREFIX_SEI:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    case NAL_UNIT_SUFFIX_SEI:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    case NAL_UNIT_CODED_SLICE_TRAIL_R:
+    case NAL_UNIT_CODED_SLICE_TRAIL_N:
+    case NAL_UNIT_CODED_SLICE_TSA_R:
+    case NAL_UNIT_CODED_SLICE_TSA_N:
+    case NAL_UNIT_CODED_SLICE_STSA_R:
+    case NAL_UNIT_CODED_SLICE_STSA_N:
+    case NAL_UNIT_CODED_SLICE_BLA_W_LP:
+    case NAL_UNIT_CODED_SLICE_BLA_W_RADL:
+    case NAL_UNIT_CODED_SLICE_BLA_N_LP:
+    case NAL_UNIT_CODED_SLICE_IDR_W_RADL:
+    case NAL_UNIT_CODED_SLICE_IDR_N_LP:
+    case NAL_UNIT_CODED_SLICE_CRA:
+    case NAL_UNIT_CODED_SLICE_RADL_N:
+    case NAL_UNIT_CODED_SLICE_RADL_R:
+    case NAL_UNIT_CODED_SLICE_RASL_N:
+    case NAL_UNIT_CODED_SLICE_RASL_R:
+      {
+        TComSlice& slice = *m_decoder.getCurSlice();
+        slice.setPic(m_decoder.getCurPic());
+        m_transcoder.transcode(sourceNalu, encodedNalu, slice);
+      }
+      break;
+
+    case NAL_UNIT_EOS:
+
+    case NAL_UNIT_ACCESS_UNIT_DELIMITER:
+
+    case NAL_UNIT_EOB:
+
+    case NAL_UNIT_FILLER_DATA:
+
+    case NAL_UNIT_RESERVED_VCL_N10:
+    case NAL_UNIT_RESERVED_VCL_R11:
+    case NAL_UNIT_RESERVED_VCL_N12:
+    case NAL_UNIT_RESERVED_VCL_R13:
+    case NAL_UNIT_RESERVED_VCL_N14:
+    case NAL_UNIT_RESERVED_VCL_R15:
+
+    case NAL_UNIT_RESERVED_IRAP_VCL22:
+    case NAL_UNIT_RESERVED_IRAP_VCL23:
+
+    case NAL_UNIT_RESERVED_VCL24:
+    case NAL_UNIT_RESERVED_VCL25:
+    case NAL_UNIT_RESERVED_VCL26:
+    case NAL_UNIT_RESERVED_VCL27:
+    case NAL_UNIT_RESERVED_VCL28:
+    case NAL_UNIT_RESERVED_VCL29:
+    case NAL_UNIT_RESERVED_VCL30:
+    case NAL_UNIT_RESERVED_VCL31:
+
+    case NAL_UNIT_RESERVED_NVCL41:
+    case NAL_UNIT_RESERVED_NVCL42:
+    case NAL_UNIT_RESERVED_NVCL43:
+    case NAL_UNIT_RESERVED_NVCL44:
+    case NAL_UNIT_RESERVED_NVCL45:
+    case NAL_UNIT_RESERVED_NVCL46:
+    case NAL_UNIT_RESERVED_NVCL47:
+
+    case NAL_UNIT_UNSPECIFIED_48:
+    case NAL_UNIT_UNSPECIFIED_49:
+    case NAL_UNIT_UNSPECIFIED_50:
+    case NAL_UNIT_UNSPECIFIED_51:
+    case NAL_UNIT_UNSPECIFIED_52:
+    case NAL_UNIT_UNSPECIFIED_53:
+    case NAL_UNIT_UNSPECIFIED_54:
+    case NAL_UNIT_UNSPECIFIED_55:
+    case NAL_UNIT_UNSPECIFIED_56:
+    case NAL_UNIT_UNSPECIFIED_57:
+    case NAL_UNIT_UNSPECIFIED_58:
+    case NAL_UNIT_UNSPECIFIED_59:
+    case NAL_UNIT_UNSPECIFIED_60:
+    case NAL_UNIT_UNSPECIFIED_61:
+    case NAL_UNIT_UNSPECIFIED_62:
+    case NAL_UNIT_UNSPECIFIED_63:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    default:
+      assert(0);
+      break;
+  }
 }
 
 
@@ -669,7 +826,7 @@ Bool TAppDbrTop::xWillDecodeAllLayers() const {
  *
  * See: Section 7.4.2.4.4 of the HEVC HM spec
  */
-Bool TAppDbrTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
+Bool TAppRbrTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
   if (nalu.m_nuhLayerId != 0) {
     return false;
   }
@@ -700,6 +857,21 @@ Bool TAppDbrTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
   }
 
   return false;
+}
+
+
+/**
+ * Writes the current access unit to the given bitstream and resets the current
+ *   access unit list
+ */
+Void TAppRbrTop::xFlushAccessUnit(ostream& stream) {
+  writeAnnexB(stream, m_currentAccessUnit);
+
+  for (auto it = m_currentAccessUnit.begin(); it != m_currentAccessUnit.end(); it++) {
+    delete *it;
+  }
+
+  m_currentAccessUnit.clear();
 }
 
 

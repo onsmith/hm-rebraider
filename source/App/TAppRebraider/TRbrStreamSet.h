@@ -33,30 +33,29 @@
 
 
 /**
- *  \file     TDbrStreamSet.h
- *  \project  TAppDebraider
- *  \brief    Debraider stream set class header
+ *  \file     TRbrStreamSet.h
+ *  \project  TAppRebraider
+ *  \brief    Rebraider stream set class header
  */
 
 
 #pragma once
 
 #include <vector>
-#include <fstream>
 
 #include "TLibCommon/TComBitStream.h"
 
 
-//! \ingroup TAppDebraider
+//! \ingroup TAppRebraider
 //! \{
 
 
-class TDbrStreamSet {
+class TRbrStreamSet {
 public:
-  // Number of streams in the set
-  static const UInt NUM_STREAMS = 31;
+  // Number of bitstreams in the set
+  static const UInt NUM_STREAMS = 28;
 
-  // Stream index
+  // Bitstream index
   enum class STREAM {
     NALU,              // Bits for encoding NAL unit header values
     VPS,               // Bits for encoding video parameter sets (vps)
@@ -66,10 +65,11 @@ public:
                        //   - Slice headers
                        //   - Slice endings
                        //   - WPP tile entry points
+                       //   - Terminating bits
     DQP,               // Bits for encoding delta quality parameter (dqp)
     COEFF,             // Bits for encoding quantized dct coefficients
     MVP_INDEX,         // Bits for encoding motion vector prediction (mvp) index
-    TQ_BYPASS_FLAG,    // Bits for encoding transquant bypass
+    TQ_BYPASS_FLAG,         // Bits for encoding transquant bypass
     SKIP_FLAG,         // Bits for encoding inter prediction cu skip flag
     MERGE_FLAG,        // Bits for encoding inter prediction cu merge flag
     MERGE_INDEX,       // Bits for encoding inter prediction cu merge index
@@ -79,53 +79,35 @@ public:
     IPCM,              // Bits for encoding intra pulse code modulation (ipcm) info
     TU_SUBDIV_FLAG,    // Bits for encoding transform subdivision flag
     QT_CBF,            // Bits for encoding quadtree (qt) coded block flag (cbf)
-    INTRA_DIR_LUMA,    // Bits for encoding intra prediction mode for luma samples
-    INTRA_DIR_CHROMA,  // Bits for encoding intra prediction mode for chroma samples
+    INTRA_DIR_LUMA,   // Bits for encoding intra prediction mode for luma samples
+    INTRA_DIR_CHROMA, // Bits for encoding intra prediction mode for chroma samples
     INTER_DIR,         // Bits for encoding inter prediction direction
     REF_FRAME_INDEX,   // Bits for encoding reference frame index
     MVD,               // Bits for encoding motion vector deltas (mvd)
     CROSS_COMP_PRED,   // Bits for encoding cross component prediction
     CHROMA_QP_ADJ,     // Bits for encoding chroma qp adjust
     TU_SKIP_FLAG,      // Bits for encoding transform skip flag
-    SAO_PARAMS,        // Bits for encoding various sample adaptive offset (sao) in-loop filter params
     SAO_BLOCK_PARAMS,  // Bits for encoding sample adaptive offset (sao) in-loop filter block params
-    LAST_SIG_XY,       // Bits for encoding last significant (x, y) coordinate for dct coefficients
-    SCALING_LIST,      // Bits for encoding scaling list
     RDPCM              // Bits for encoding residual differential pulse code modulation (rdpcm)
-  };
-
-  // Stream name strings
-  static const std::string STREAM_NAMES[NUM_STREAMS];
+  }; 
 
 
 private:
   // Stores the bitstreams in a vector
-  std::vector<TComOutputBitstream> bitstreams;
-
-  // Stores corresponding ofstreams in a vector
-  std::vector<std::ofstream> ofstreams;
+  std::vector<TComInputBitstream> bitstreams;
 
 
 public:
   // Default constructor
-  TDbrStreamSet();
-
-  // Opens all bitstreams
-  Void open(std::string basename);
-
-  // Byte-aligns and flushes all bitstreams to their corresponding ostreams
-  Void flush();
+  TRbrStreamSet();
 
   // Clears all bitstreams
   Void clear();
 
   // Bitstream access
-  TComOutputBitstream& getBitstream(STREAM i);
-  TComOutputBitstream& getBitstream(Int i);
-
-  // Ofstream access
-  std::ofstream& getOfstream(STREAM i);
-  std::ofstream& getOfstream(Int i);
+  TComInputBitstream& operator[](Int i);
+  TComInputBitstream& operator()(STREAM i);
+  TComInputBitstream& getStream(STREAM i);
 };
 
 
