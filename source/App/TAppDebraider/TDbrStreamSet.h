@@ -45,6 +45,7 @@
 #include <fstream>
 
 #include "TLibCommon/TComBitStream.h"
+#include "TLibDecoder/NALread.h"
 
 
 //! \ingroup TAppDebraider
@@ -54,10 +55,11 @@
 class TDbrStreamSet {
 public:
   // Number of streams in the set
-  static const UInt NUM_STREAMS = 31;
+  static const UInt NUM_STREAMS = 32;
 
   // Stream index
   enum class STREAM {
+    CHUNKS,            // Bits for encoding number of bytes in each stream for each nal unit
     NALU,              // Bits for encoding NAL unit header values
     VPS,               // Bits for encoding video parameter sets (vps)
     SPS,               // Bits for encoding sequence parameter sets (sps)
@@ -111,12 +113,21 @@ public:
   TDbrStreamSet();
 
   // Opens all bitstreams
-  Void open(std::string basename);
+  Void open(const std::string& basename);
 
-  // Byte-aligns and flushes all bitstreams to their corresponding ostreams
+  // Writes a nal unit header to the special NALU stream
+  Void writeNalHeader(const InputNALUnit& nalu);
+
+  // Writes lengths to the special CHUNKS stream
+  Void writeLengths();
+
+  // Byte-aligns all bitstreams
+  Void byteAlign();
+
+  // Flushes all bitstreams to their corresponding ostreams
   Void flush();
 
-  // Clears all bitstreams
+  // Empties all bitstreams
   Void clear();
 
   // Bitstream access

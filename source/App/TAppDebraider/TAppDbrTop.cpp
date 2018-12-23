@@ -167,6 +167,9 @@ Void TAppDbrTop::debraid() {
 
       // Flush and clear the bitstreams
       if (!wasNewPictureFound) {
+        outputStreams.writeNalHeader(nalu);
+        outputStreams.byteAlign();
+        outputStreams.writeLengths();
         outputStreams.flush();
         outputStreams.clear();
       }

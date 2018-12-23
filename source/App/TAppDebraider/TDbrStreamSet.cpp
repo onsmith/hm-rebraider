@@ -2,6 +2,7 @@
 
 
 const std::string TDbrStreamSet::STREAM_NAMES[] = {
+  "CHUNKS",
   "NALU",
   "VPS",
   "SPS",
@@ -62,13 +63,22 @@ std::ofstream& TDbrStreamSet::getOfstream(Int i) {
 }
 
 
-Void TDbrStreamSet::flush() {
+Void TDbrStreamSet::byteAlign() {
   for (Int i = 0; i < NUM_STREAMS; i++) {
     bitstreams[i].writeAlignZero();
-    ofstreams[i].write(
-      reinterpret_cast<char*>(bitstreams[i].getByteStream()),
-      bitstreams[i].getByteStreamLength()
-    );
+  }
+}
+
+
+Void TDbrStreamSet::flush() {
+  for (Int i = 0; i < NUM_STREAMS; i++) {
+    const UInt numBytes = bitstreams[i].getByteStreamLength();
+    if (numBytes > 0) {
+      ofstreams[i].write(
+        reinterpret_cast<char*>(bitstreams[i].getByteStream()),
+        numBytes
+      );
+    }
   }
 }
 
@@ -80,7 +90,7 @@ Void TDbrStreamSet::clear() {
 }
 
 
-Void TDbrStreamSet::open(std::string basename) {
+Void TDbrStreamSet::open(const std::string& basename) {
   for (Int i = 0; i < NUM_STREAMS; i++) {
     const std::string str = basename + STREAM_NAMES[i] + ".dat";
 
@@ -97,5 +107,23 @@ Void TDbrStreamSet::open(std::string basename) {
       );
       exit(EXIT_FAILURE);
     }
+  }
+}
+
+
+Void TDbrStreamSet::writeNalHeader(const InputNALUnit& nalu) {
+  TComOutputBitstream& naluStream = getBitstream(STREAM::NALU);
+  naluStream.write(0, 1); // forbidden zero bit
+  naluStream.write(nalu.m_nalUnitType, 6);
+  naluStream.write(nalu.m_nuhLayerId, 6);
+  naluStream.write(nalu.m_temporalId, 3);
+}
+
+
+Void TDbrStreamSet::writeLengths() {
+  TComOutputBitstream& chunks = getBitstream(STREAM::CHUNKS);
+  for (Int i = 1; i < NUM_STREAMS; i++) {
+    const UInt numBytes = bitstreams[i].getByteStreamLength();
+    chunks.write(numBytes, 16);
   }
 }
