@@ -55,11 +55,11 @@
 class TDbrStreamSet {
 public:
   // Number of streams in the set
-  static const UInt NUM_STREAMS = 32;
+  static const UInt NUM_STREAMS = 33;
 
   // Stream index
   enum class STREAM {
-    CHUNKS,            // Bits for encoding number of bytes in each stream for each nal unit
+    CHUNKS = 0,        // Bits for encoding number of bytes in each stream for each nal unit
     NALU,              // Bits for encoding NAL unit header values
     VPS,               // Bits for encoding video parameter sets (vps)
     SPS,               // Bits for encoding sequence parameter sets (sps)
@@ -93,7 +93,8 @@ public:
     SAO_BLOCK_PARAMS,  // Bits for encoding sample adaptive offset (sao) in-loop filter block params
     LAST_SIG_XY,       // Bits for encoding last significant (x, y) coordinate for dct coefficients
     SCALING_LIST,      // Bits for encoding scaling list
-    RDPCM              // Bits for encoding residual differential pulse code modulation (rdpcm)
+    RDPCM,             // Bits for encoding residual differential pulse code modulation (rdpcm)
+    OTHER              // Bits for encoding undecoded NAL units (SEI, etc)
   };
 
   // Stream name strings
@@ -102,10 +103,10 @@ public:
 
 private:
   // Stores the bitstreams in a vector
-  std::vector<TComOutputBitstream> bitstreams;
+  std::vector<TComInputBitstream> bitstreams;
 
-  // Stores corresponding ofstreams in a vector
-  std::vector<std::ofstream> ofstreams;
+  // Stores corresponding ifstreams in a vector
+  std::vector<std::ifstream> ifstreams;
 
 
 public:
@@ -115,28 +116,38 @@ public:
   // Opens all bitstreams
   Void open(const std::string& basename);
 
-  // Writes a nal unit header to the special NALU stream
-  Void writeNalHeader(const InputNALUnit& nalu);
-
-  // Writes lengths to the special CHUNKS stream
-  Void writeLengths();
-
-  // Byte-aligns all bitstreams
-  Void byteAlign();
-
-  // Flushes all bitstreams to their corresponding ostreams
-  Void flush();
-
-  // Empties all bitstreams
-  Void clear();
+  // Reads the next nal unit into the bitstreams
+  Void readNextNalUnit(InputNALUnit& nalu);
 
   // Bitstream access
-  TComOutputBitstream& getBitstream(STREAM i);
-  TComOutputBitstream& getBitstream(Int i);
+        TComInputBitstream& getBitstream(STREAM i);
+  const TComInputBitstream& getBitstream(STREAM i) const;
+        TComInputBitstream& getBitstream(Int i);
+  const TComInputBitstream& getBitstream(Int i) const;
 
   // Ofstream access
-  std::ofstream& getOfstream(STREAM i);
-  std::ofstream& getOfstream(Int i);
+        std::ifstream& getIfstream(STREAM i);
+  const std::ifstream& getIfstream(STREAM i) const;
+        std::ifstream& getIfstream(Int i);
+  const std::ifstream& getIfstream(Int i) const;
+
+  // Returns true if there is another nal unit in the hevc stream
+  Bool hasAnotherNalUnit() const;
+
+  // Returns true if one or more ifstreams has failed
+  Bool fail() const;
+
+
+private:
+  // Reads a nal unit header from the special NALU stream
+  Void xReadNextNalUnitHeader(InputNALUnit& nalu);
+
+  // Read the next stream chunk length from the special CHUNKS stream
+  UInt xReadNextChunkLength();
+
+  // Reads a specified number of bytes from an ifstream into the corresponding
+  //   bitstream
+  Void xReadBytesIntoBitstream(STREAM stream, UInt numBytes);
 };
 
 

@@ -44,21 +44,21 @@
 #include "TDbrStreamSet.h"
 
 #include "TLibDecoder/TDecBinCoderCABAC.h"
-#include "TLibEncoder/SyntaxElementWriter.h"
+#include "TLibDecoder/SyntaxElementParser.h"
 
 
 //! \ingroup TAppDebraider
 //! \{
 
 
-class TDbrBinCABAC : public TDecBinCABAC, protected SyntaxElementWriter {
+class TDbrBinCABAC : public TDecBinCABAC, protected SyntaxElementParser {
 public:
-  // Getter/setter for the output bitstream
-  TComBitIf* getOutputBitstream();
-  Void setOutputBitstream(TComBitIf* outputBitstream);
+  // Getter/setter for the input bitstream
+  TComInputBitstream* getInputBitstream();
+  Void setInputBitstream(TComInputBitstream* outputBitstream);
 
 
-  // Override virtual TDecBinIf methods and make them output bits to debraided
+  // Override virtual TDecBinIf methods and make them read from debraided
   //   bitstream
   Void decodeBin(UInt& ruiBin, ContextModel& rcCtxModel);
   Void decodeBinEP(UInt& ruiBin);

@@ -1,44 +1,40 @@
 #include "TDbrBinCABAC.h"
 
 
-TComBitIf* TDbrBinCABAC::getOutputBitstream() {
-  return SyntaxElementWriter::m_pcBitIf;
+TComInputBitstream* TDbrBinCABAC::getInputBitstream() {
+  return SyntaxElementParser::m_pcBitstream;
 }
 
-Void TDbrBinCABAC::setOutputBitstream(TComBitIf* outputBitstream) {
-  SyntaxElementWriter::setBitstream(outputBitstream);
+
+Void TDbrBinCABAC::setInputBitstream(TComInputBitstream* outputBitstream) {
+  SyntaxElementParser::m_pcBitstream = outputBitstream;
 }
 
 
 Void TDbrBinCABAC::decodeBin(UInt& ruiBin, ContextModel& rcCtxModel) {
-  TDecBinCABAC::decodeBin(ruiBin, rcCtxModel);
-  SyntaxElementWriter::xWriteFlag(ruiBin);
+  SyntaxElementParser::xReadFlag(ruiBin);
 }
 
 
 Void TDbrBinCABAC::decodeBinEP(UInt& ruiBin) {
-  TDecBinCABAC::decodeBinEP(ruiBin);
-  SyntaxElementWriter::xWriteFlag(ruiBin);
+  SyntaxElementParser::xReadFlag(ruiBin);
 }
 
 
 Void TDbrBinCABAC::decodeBinsEP(UInt& ruiBins, Int numBins) {
-  TDecBinCABAC::decodeBinsEP(ruiBins, numBins);
   if (numBins > 0) {
-    SyntaxElementWriter::xWriteCode(ruiBins, numBins);
+    SyntaxElementParser::xReadCode(numBins, ruiBins);
   }
 }
 
 
 Void TDbrBinCABAC::decodeBinTrm(UInt& ruiBin) {
-  TDecBinCABAC::decodeBinTrm(ruiBin);
-  SyntaxElementWriter::xWriteFlag(ruiBin);
+  SyntaxElementParser::xReadFlag(ruiBin);
 }
 
 
 Void TDbrBinCABAC::xReadPCMCode(UInt uiLength, UInt& ruiCode) {
-  TDecBinCABAC::xReadPCMCode(uiLength, ruiCode);
   if (uiLength > 0) {
-    SyntaxElementWriter::xWriteCode(ruiCode, uiLength);
+    SyntaxElementParser::xReadCode(uiLength, ruiCode);
   }
 }

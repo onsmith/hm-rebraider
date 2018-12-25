@@ -93,14 +93,13 @@ Void TAppDbrTop::debraid() {
   // Pointer to decoded picture buffer
   TComList<TComPic*>* dpb = nullptr;
 
-  // Open input h265 bitstream for reading source video
-  ifstream inputStream;
-  xOpenInputStream(inputStream);
-  InputByteStream inputByteStream(inputStream);
+  // Open input debraided bitstreams for reading source video
+  TDbrStreamSet inputStreams;
+  inputStreams.open(m_inputFileName);
 
-  // Open output h265 bitstream for writing transcoded video
-  TDbrStreamSet outputStreams;
-  outputStreams.open(m_outputFileName);
+  // Open output h265 bitstream for writing rebraided video
+  std::ofstream outputStream;
+  xOpenOutputStream(outputStream);
 
   // Reset decoded yuv output stream
   if (m_decodedYUVOutputStream.isOpen()) {
@@ -108,99 +107,83 @@ Void TAppDbrTop::debraid() {
   }
 
   // Copy decoding configuration to the decoder
-  m_decoder.getCavlcDecoder().setBitstreams(&outputStreams);
-  m_decoder.getSbacDecoder().setBitstreams(&outputStreams);
+  m_decoder.getCavlcDecoder().setBitstreams(&inputStreams);
+  m_decoder.getSbacDecoder().setBitstreams(&inputStreams);
   m_decoder.getSbacDecoder().setCabacReader(&m_decoder.getCabacReader());
   xConfigDecoder();
 
   // Adjust the last output POC index if seeking is required before decoding
   m_lastOutputPOC += m_iSkipFrame;
 
+  // Input NAL unit
+  InputNALUnit nalu;
+
+  // Indicates if decode() needs to be called twice on the same nal unit
+  Bool isNalUnitQueued = false;
+
   // TODO: Write description of this variable's purpose
   Bool loopFiltered = false;
 
   // Main decoder loop
-  while (!inputStream.fail()) {
-    // Remember the starting position of the input bitstream file cursor
-    /* Note: This serves to work around a design fault in the decoder, whereby
-     * the process of reading a new slice that is the first slice of a new frame
-     * requires the TDecTop::decode() method to be called again with the same
-     * nal unit. */
-#if RExt__DECODER_DEBUG_BIT_STATISTICS
-    auto backupStats(TComCodingStatistics::GetStatistics());
-    const streampos initialPositionInInputBitstream =
-      inputStream.tellg() - streampos(inputByteStream.GetNumBufferedBytes());
-#else
-    const streampos initialPositionInInputBitstream = inputStream.tellg();
-#endif
-
+  while (inputStreams.hasAnotherNalUnit() || isNalUnitQueued) {
     // Read one NAL unit from input bitstream
-    InputNALUnit nalu;
-    AnnexBStats  stats;
-    byteStreamNALUnit(inputByteStream, nalu.getBitstream().getFifo(), stats);
+    if (!isNalUnitQueued) {
+      inputStreams.readNextNalUnit(nalu);
+    }
+
+    // Create an output NAL unit to store the reencoded data
+    OutputNALUnit reencodedNalu(
+      nalu.m_nalUnitType,
+      nalu.m_temporalId,
+      nalu.m_nuhLayerId
+    );
+
+    // If present, copy nal unit body directly from other stream
+    xCopyNaluBodyFromStream(nalu, inputStreams.getBitstream(TDbrStreamSet::STREAM::OTHER));
 
     // True if a new picture is found within the current NAL unit
     Bool wasNewPictureFound = false;
-    
-    /* Check for empty bitstream. This can happen if the following occur:
-     *  - empty input file
-     *  - two back-to-back start_code_prefixes
-     *  - start_code_prefix immediately followed by EOF
-     */
-    if (nalu.getBitstream().getFifo().empty()) {
-      fprintf(stderr, "Warning: Attempt to decode an empty NAL unit\n");
 
-    // Parse and decode nal unit
-    } else {
-      // Parse nal unit header
-      read(nalu);
+    // Determine if the nal unit comes from a temporal ID marked for decoding
+    Bool willDecodeTemporalId = (
+      m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
+    );
 
-      // Determine if the nal unit comes from a temporal ID marked for decoding
-      Bool willDecodeTemporalId = (
-        m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
-      );
-
-      // Call decoding function
-      if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
-        wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
-      }
-
-      // Flush and clear the bitstreams
+    // Call decoding function
+    if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
+      wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
       if (!wasNewPictureFound) {
-        outputStreams.writeNalHeader(nalu);
-        outputStreams.byteAlign();
-        outputStreams.writeLengths();
-        outputStreams.flush();
-        outputStreams.clear();
+        xEncodeUnit(nalu, reencodedNalu);
       }
+    } else {
+      m_transcoder.transcode(nalu, reencodedNalu);
     }
 
-    // If a new picture was found in the current NAL unit, rewind the input
-    //   bitstream file cursor
-    if (wasNewPictureFound) {
-      inputStream.clear();
-      /* initialPositionInInputBitstream points to the current nalunit
-       * payload[1] due to the need for the annexB parser to read three extra
-       * bytes. [1] except for the first NAL unit in the file (but
-       * wasNewPictureFound doesn't happen then)
-       */
-#if RExt__DECODER_DEBUG_BIT_STATISTICS
-      inputStream.seekg(initialPositionInInputBitstream);
-      inputByteStream.reset();
-      TComCodingStatistics::SetStatistics(backupStats);
-#else
-      inputStream.seekg(initialPositionInInputBitstream - streamoff(3));
-      inputByteStream.reset();
-#endif
+    // Add the new NAL unit to the current access unit
+    if (!wasNewPictureFound) {
+      m_currentAccessUnit.push_back(new NALUnitEBSP(reencodedNalu));
+        
+      // TODO: Technically, it's probably better to wait for a new access unit
+      //   signal before flushing the access unit, but for now we will flush
+      xFlushAccessUnit(outputStream);
+
+      // Flush access unit
+      //if (xIsFirstNalUnitOfNewAccessUnit(nalu)) {
+      //  xFlushAccessUnit(outputStream);
+      //}
     }
+
+    // If a new picture was found in the current NAL unit, it needs to be
+    //   decoded again
+    isNalUnitQueued = wasNewPictureFound;
 
     // True if a picture was finished while decoding the current NAL unit
     Bool wasPictureFinished =
-      (wasNewPictureFound || inputStream.fail() || nalu.isEOS());
+      (wasNewPictureFound || inputStreams.fail() || nalu.isEOS());
 
     // Apply in-loop filters to reconstructed picture
     if (wasPictureFinished && !m_decoder.getFirstSliceInSequence()) {
-      if (!loopFiltered || !inputStream.fail()) {
+      if (!loopFiltered || !inputStreams.fail()) {
         m_decoder.executeLoopFilters(poc, dpb);
       }
       loopFiltered = nalu.isEOS();
@@ -291,6 +274,26 @@ Void TAppDbrTop::xOpenInputStream(ifstream& stream) const {
 
 
 /**
+ * Helper method to open an ofstream for writing the transrated hevc bitstream
+ */
+Void TAppDbrTop::xOpenOutputStream(ofstream& stream) const {
+  stream.open(
+    m_outputFileName.c_str(),
+    fstream::binary | fstream::out
+  );
+
+  if (!stream.is_open() || !stream.good()) {
+    fprintf(
+      stderr,
+      "\nfailed to open bitstream file `%s' for writing\n",
+      m_outputFileName.c_str()
+    );
+    exit(EXIT_FAILURE);
+  }
+}
+
+
+/**
  * Overwrites the default configuration for output bit depth
  */
 Void TAppDbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
@@ -299,6 +302,13 @@ Void TAppDbrTop::xSetOutputBitDepths(const BitDepths& bitDepths) {
       m_outputBitDepth[c] = bitDepths.recon[c];
     }
   }
+}
+
+
+/**
+ * Transfers the current configuration to the encoder object
+ */
+Void TAppDbrTop::xConfigTranscoder() {
 }
 
 
@@ -668,6 +678,115 @@ Bool TAppDbrTop::xWillDecodeAllLayers() const {
 
 
 /**
+ * Encodes a decoded NAL unit
+ */
+Void TAppDbrTop::xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu) {
+  switch (sourceNalu.m_nalUnitType) {
+    case NAL_UNIT_VPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getVPS());
+      break;
+
+    case NAL_UNIT_SPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getSPS());
+      break;
+
+    case NAL_UNIT_PPS:
+      m_transcoder.transcode(sourceNalu, encodedNalu, *m_decoder.getPPS());
+      break;
+
+    case NAL_UNIT_PREFIX_SEI:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    case NAL_UNIT_SUFFIX_SEI:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    case NAL_UNIT_CODED_SLICE_TRAIL_R:
+    case NAL_UNIT_CODED_SLICE_TRAIL_N:
+    case NAL_UNIT_CODED_SLICE_TSA_R:
+    case NAL_UNIT_CODED_SLICE_TSA_N:
+    case NAL_UNIT_CODED_SLICE_STSA_R:
+    case NAL_UNIT_CODED_SLICE_STSA_N:
+    case NAL_UNIT_CODED_SLICE_BLA_W_LP:
+    case NAL_UNIT_CODED_SLICE_BLA_W_RADL:
+    case NAL_UNIT_CODED_SLICE_BLA_N_LP:
+    case NAL_UNIT_CODED_SLICE_IDR_W_RADL:
+    case NAL_UNIT_CODED_SLICE_IDR_N_LP:
+    case NAL_UNIT_CODED_SLICE_CRA:
+    case NAL_UNIT_CODED_SLICE_RADL_N:
+    case NAL_UNIT_CODED_SLICE_RADL_R:
+    case NAL_UNIT_CODED_SLICE_RASL_N:
+    case NAL_UNIT_CODED_SLICE_RASL_R:
+      {
+        TComSlice& slice = *m_decoder.getCurSlice();
+        slice.setPic(m_decoder.getCurPic());
+        m_transcoder.transcode(sourceNalu, encodedNalu, slice);
+      }
+      break;
+
+    case NAL_UNIT_EOS:
+
+    case NAL_UNIT_ACCESS_UNIT_DELIMITER:
+
+    case NAL_UNIT_EOB:
+
+    case NAL_UNIT_FILLER_DATA:
+
+    case NAL_UNIT_RESERVED_VCL_N10:
+    case NAL_UNIT_RESERVED_VCL_R11:
+    case NAL_UNIT_RESERVED_VCL_N12:
+    case NAL_UNIT_RESERVED_VCL_R13:
+    case NAL_UNIT_RESERVED_VCL_N14:
+    case NAL_UNIT_RESERVED_VCL_R15:
+
+    case NAL_UNIT_RESERVED_IRAP_VCL22:
+    case NAL_UNIT_RESERVED_IRAP_VCL23:
+
+    case NAL_UNIT_RESERVED_VCL24:
+    case NAL_UNIT_RESERVED_VCL25:
+    case NAL_UNIT_RESERVED_VCL26:
+    case NAL_UNIT_RESERVED_VCL27:
+    case NAL_UNIT_RESERVED_VCL28:
+    case NAL_UNIT_RESERVED_VCL29:
+    case NAL_UNIT_RESERVED_VCL30:
+    case NAL_UNIT_RESERVED_VCL31:
+
+    case NAL_UNIT_RESERVED_NVCL41:
+    case NAL_UNIT_RESERVED_NVCL42:
+    case NAL_UNIT_RESERVED_NVCL43:
+    case NAL_UNIT_RESERVED_NVCL44:
+    case NAL_UNIT_RESERVED_NVCL45:
+    case NAL_UNIT_RESERVED_NVCL46:
+    case NAL_UNIT_RESERVED_NVCL47:
+
+    case NAL_UNIT_UNSPECIFIED_48:
+    case NAL_UNIT_UNSPECIFIED_49:
+    case NAL_UNIT_UNSPECIFIED_50:
+    case NAL_UNIT_UNSPECIFIED_51:
+    case NAL_UNIT_UNSPECIFIED_52:
+    case NAL_UNIT_UNSPECIFIED_53:
+    case NAL_UNIT_UNSPECIFIED_54:
+    case NAL_UNIT_UNSPECIFIED_55:
+    case NAL_UNIT_UNSPECIFIED_56:
+    case NAL_UNIT_UNSPECIFIED_57:
+    case NAL_UNIT_UNSPECIFIED_58:
+    case NAL_UNIT_UNSPECIFIED_59:
+    case NAL_UNIT_UNSPECIFIED_60:
+    case NAL_UNIT_UNSPECIFIED_61:
+    case NAL_UNIT_UNSPECIFIED_62:
+    case NAL_UNIT_UNSPECIFIED_63:
+      m_transcoder.transcode(sourceNalu, encodedNalu);
+      break;
+
+    default:
+      assert(0);
+      break;
+  }
+}
+
+
+/**
  * Checks if the given nal unit signals the start of a new access unit
  *
  * See: Section 7.4.2.4.4 of the HEVC HM spec
@@ -703,6 +822,33 @@ Bool TAppDbrTop::xIsFirstNalUnitOfNewAccessUnit(const NALUnit& nalu) const {
   }
 
   return false;
+}
+
+
+/**
+ * Writes the current access unit to the given bitstream and resets the current
+ *   access unit list
+ */
+Void TAppDbrTop::xFlushAccessUnit(ostream& stream) {
+  writeAnnexB(stream, m_currentAccessUnit);
+
+  for (auto it = m_currentAccessUnit.begin(); it != m_currentAccessUnit.end(); it++) {
+    delete *it;
+  }
+
+  m_currentAccessUnit.clear();
+}
+
+
+/**
+ * Directly copies a nal unit from a bitstream
+ */
+Void TAppDbrTop::xCopyNaluBodyFromStream(InputNALUnit& nalu, const TComInputBitstream& bitstream) const {
+  const std::vector<UChar>& srcFifo       = bitstream.getFifo();
+        TComInputBitstream& naluBitstream = nalu.getBitstream();
+        std::vector<UChar>& naluFifo      = naluBitstream.getFifo();
+  naluBitstream.resetToStart();
+  naluFifo = srcFifo;
 }
 
 

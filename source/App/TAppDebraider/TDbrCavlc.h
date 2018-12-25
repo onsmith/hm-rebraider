@@ -45,14 +45,13 @@
 #include "TDbrStreamSet.h"
 
 #include "TLibDecoder/TDecCAVLC.h"
-#include "TLibEncoder/SyntaxElementWriter.h"
 
 
 //! \ingroup TAppDebraider
 //! \{
 
 
-class TDbrCavlc : public TDecCavlc, protected SyntaxElementWriter {
+class TDbrCavlc : public TDecCavlc {
 protected:
   // Stores a set of debraided output bitstreams as a TDbrStreamSet object
   TDbrStreamSet* bitstreams;
@@ -95,16 +94,6 @@ public:
   Void parseCoeffNxN(TComTU& rTu, ComponentID compID);
   Void parseTransformSkipFlags(TComTU& rTu, ComponentID component);
   Void parseExplicitRdpcmMode(TComTU& rTu, ComponentID compID);
-
-
-protected:
-  // Override SyntaxElementParser virtual methods to make them output decoded
-  //   decoded bits to the debraided bitstream
-  Void xReadCode(UInt length, UInt& val);
-  Void xReadUvlc(UInt& val);
-  Void xReadSvlc(Int& val);
-  Void xReadFlag(UInt& val);
-  Void xReadRbspTrailingBits();
 };
 
 
