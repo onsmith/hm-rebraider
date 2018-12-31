@@ -137,6 +137,9 @@ public:
   // Returns true if one or more ifstreams has failed
   Bool fail() const;
 
+  // Rewinds the bitstream
+  Void rewind();
+
 
 private:
   // Reads a nal unit header from the special NALU stream

@@ -161,3 +161,10 @@ Bool TDbrStreamSet::fail() const {
   }
   return false;
 }
+
+
+Void TDbrStreamSet::rewind() {
+  for (Int i = 0; i < NUM_STREAMS; i++) {
+    getBitstream(i).resetToStart();
+  }
+}

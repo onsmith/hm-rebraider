@@ -11,6 +11,14 @@ Void TDbrBinCABAC::setInputBitstream(TComInputBitstream* outputBitstream) {
 }
 
 
+Void TDbrBinCABAC::start() {
+}
+
+
+Void TDbrBinCABAC::finish() {
+}
+
+
 Void TDbrBinCABAC::decodeBin(UInt& ruiBin, ContextModel& rcCtxModel) {
   SyntaxElementParser::xReadFlag(ruiBin);
 }

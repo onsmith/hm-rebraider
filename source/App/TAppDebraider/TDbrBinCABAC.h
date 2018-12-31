@@ -60,6 +60,8 @@ public:
 
   // Override virtual TDecBinIf methods and make them read from debraided
   //   bitstream
+  Void start();
+  Void finish();
   Void decodeBin(UInt& ruiBin, ContextModel& rcCtxModel);
   Void decodeBinEP(UInt& ruiBin);
   Void decodeBinsEP(UInt& ruiBins, Int numBins);

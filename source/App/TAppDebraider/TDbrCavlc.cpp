@@ -32,6 +32,7 @@ Void TDbrCavlc::parsePPS(TComPPS* pcPPS) {
 Void TDbrCavlc::parseSliceHeader(TComSlice* pcSlice, ParameterSetManager* parameterSetManager, const Int prevTid0POC) {
   setBitstream(&bitstreams->getBitstream(TDbrStreamSet::STREAM::SLICE));
   TDecCavlc::parseSliceHeader(pcSlice, parameterSetManager, prevTid0POC);
+  pcSlice->clearSubstreamSizes();
 }
 
 

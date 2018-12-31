@@ -126,8 +126,10 @@ Void TAppDbrTop::debraid() {
 
   // Main decoder loop
   while (inputStreams.hasAnotherNalUnit() || isNalUnitQueued) {
-    // Read one NAL unit from input bitstream
-    if (!isNalUnitQueued) {
+    // Either read a new nal unit or rewind the bitstream
+    if (isNalUnitQueued) {
+      inputStreams.rewind();
+    } else {
       inputStreams.readNextNalUnit(nalu);
     }
 
