@@ -33,65 +33,82 @@
 
 
 /**
- * \file     rbrmain.cpp
- * \project  TAppRebraider
- * \brief    Rebraider application main
+ *  \file     TDbrXmlReader.h
+ *  \project  TAppDebraider
+ *  \brief    Debraider XML reader class header
  */
 
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include "TAppRbrTop.h"
+#pragma once
+
+#include <string>
+#include <fstream>
+
+#include "TLibCommon/CommonDef.h"
+#include "TLibDecoder/NALread.h"
 
 
-using std::printf;
+using std::string;
+using std::istream;
 
 
-//! \ingroup TAppRebraider
+//! \ingroup TAppDebraider
 //! \{
 
 
-int main(int argc, char* argv[]) {
-  // Output version information
-  fprintf(stdout, "\n");
-  fprintf(stdout, "HM software: Transrater Version [%s] (including RExt)", NV_VERSION);
-  fprintf(stdout, NVM_ONOS );
-  fprintf(stdout, NVM_COMPILEDBY);
-  fprintf(stdout, NVM_BITS);
-  fprintf(stdout, "\n");
+class TDbrXmlReader {
+private:
+  // Stores an istream for reading xml
+  std::istream* stream;
 
-  // Create rebraider
-  TAppRbrTop rebraider;
 
-  // Parse configuration
-  if (!rebraider.parseCfg(argc, argv)) {
-    return EXIT_FAILURE;
-  }
+public:
+  // Constructors
+  TDbrXmlReader() = default;
+  TDbrXmlReader(istream& stream);
 
-  // Capture starting time
-  clock_t startTime = clock();
 
-  // Rebraid video
-  rebraider.rebraid();
+  // Stream management
+  istream* getStream();
+  Void setStream(istream* stream);
 
-  // Capture ending time
-  clock_t endTime = clock();
 
-  // Output timing information
-  Double elapsedTime = (Double) (endTime - startTime) / CLOCKS_PER_SEC;
-  printf("\n Total Time: %12.3f sec.\n", elapsedTime);
+  // Generic tag input
+  string readOpenTag();
+  string readOpenTag(const std::string& expectedTagName);
 
-  // Report errors
-  Int returnCode = EXIT_SUCCESS;
-  if (rebraider.numDecodingErrorsDetected() != 0) {
-    printf("\n\n***ERROR*** A decoding mismatch occured: signalled md5sum does not match\n");
-    return EXIT_FAILURE;
-  }
+  string readCloseTag();
+  string readCloseTag(const std::string& expectedTagName);
 
-  // Terminate
-  return returnCode;
-}
+
+  // Nalu tag input
+  string readOpenTag(NALUnit& nalu);
+
+
+  // Value input
+  Int readValueTag();
+  Int readValueTag(const std::string& expectedTagName);
+
+
+  // Checks if a string represents a tag
+  static Bool isTag(const string& line);
+  static Bool isOpenTag(const string& line, const string& expectedTagName);
+  static Bool isCloseTag(const string& line, const string& expectedTagName);
+  static Bool isOpenTag(const string& line);
+  static Bool isCloseTag(const string& line);
+
+
+  // Extracts a tag name
+  static string extractTagName(const string& line);
+
+
+  // Extracts the next complete tag as a string without moving the stream cursor
+  string peekNextCompleteTag(const string& tagName);
+
+
+  // Skips empty line(s) in the stream
+  Void consumeEmptyLines();
+};
 
 
 //! \}

@@ -242,23 +242,23 @@ Void TDbrTop::xEncodeSlice(TComSlice& slice, TComOutputBitstream& bitstream) {
  */
 Void TDbrTop::xFinishPicture(TComPic& pic) {
   // Get pps, sps
-  const TComPPS& pps = pic.getPicSym()->getPPS();
-  const TComSPS& sps = pic.getPicSym()->getSPS();
+  //const TComPPS& pps = pic.getPicSym()->getPPS();
+  //const TComSPS& sps = pic.getPicSym()->getSPS();
 
   // Apply deblocking filter
-  TComLoopFilter& loopFilterProcessor = *getLoopFilter();
+  /*TComLoopFilter& loopFilterProcessor = *getLoopFilter();
   Bool shouldDeblockOverTiles = pps.getLoopFilterAcrossTilesEnabledFlag();
   loopFilterProcessor.setCfg(shouldDeblockOverTiles);
-  loopFilterProcessor.loopFilterPic(&pic);
+  loopFilterProcessor.loopFilterPic(&pic);*/
 
   // Apply sao filter
-  if (sps.getUseSAO()) {
+  /*if (sps.getUseSAO()) {
     TComSampleAdaptiveOffset& saoProcessor = *getSAO();
     SAOBlkParam* saoBlockParam = pic.getPicSym()->getSAOBlkParam();
     saoProcessor.reconstructBlkSAOParams(&pic, saoBlockParam);
     saoProcessor.SAOProcess(&pic);
     saoProcessor.PCMLFDisableProcess(&pic);
-  }
+  }*/
 
   // Compress motion
   pic.compressMotion();

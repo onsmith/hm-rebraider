@@ -42,7 +42,8 @@
 #pragma once
 
 #include "TDbrBinCABAC.h"
-#include "TDbrStreamSet.h"
+#include "TDbrXmlReader.h"
+#include "TDbrDummyBitstream.h"
 
 #include "TLibDecoder/TDecSbac.h"
 
@@ -53,26 +54,22 @@
 
 class TDbrSbac : public TDecSbac {
 protected:
-  // Stores a set of debraided output bitstreams as a TDbrStreamSet object
-  TDbrStreamSet* bitstreams;
+  // Stores an XML reader for reading xml tags
+  TDbrXmlReader* stream;
 
   // Stores a modified cabac reader that decodes the input bitstream while
   //   transparently outputting all symbols read to the current debraided
   //   bitstream
   TDbrBinCABAC* cabacReader;
 
+  // Dummy stream
+  TDbrDummyBitstream dummyStream;
+
 
 public:
-  // Default constructor
-  TDbrSbac() = default;
-
-  // Default destructor
-  ~TDbrSbac() = default;
-
-
-  // Bitstream set management
-  Void setBitstreams(TDbrStreamSet* bitstreams);
-  TDbrStreamSet* getBitstreams();
+  // XML reader management
+  TDbrXmlReader* getXmlReader();
+  Void setXmlReader(TDbrXmlReader* stream);
 
 
   // Cabac reader management
@@ -81,10 +78,10 @@ public:
 
   // Override TDecEntropyIf virtual methods to set the output bitstream before
   //   parsing
-  Void parseVPS(TComVPS* pcVPS);
-  Void parseSPS(TComSPS* pcSPS);
-  Void parsePPS(TComPPS* pcPPS);
-  Void parseSliceHeader(TComSlice* pcSlice, ParameterSetManager* parameterSetManager, const Int prevTid0POC);
+  //Void parseVPS(TComVPS* pcVPS);
+  //Void parseSPS(TComSPS* pcSPS);
+  //Void parsePPS(TComPPS* pcPPS);
+  //Void parseSliceHeader(TComSlice* pcSlice, ParameterSetManager* parameterSetManager, const Int prevTid0POC);
   Void parseTerminatingBit(UInt& ruilsLast);
   Void parseRemainingBytes(Bool noTrailingBytesExpected);
   Void parseMVPIdx(Int& riMVPIdx);

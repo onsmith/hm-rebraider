@@ -1,3 +1,4 @@
+#pragma once
 /* The copyright in this software is being made available under the BSD
  * License, included below. This software may be subject to other third party
  * and contributor rights, including patent rights, and no such rights are
@@ -33,9 +34,9 @@
 
 
 /**
- *  \file     TDbrBinCABAC.h
+ *  \file     TDbrDummyBitstream.h
  *  \project  TAppDebraider
- *  \brief    Debraider CABAC entropy class header
+ *  \brief    Debraider dummy bitstream class header
  */
 
 
@@ -50,27 +51,11 @@
 //! \{
 
 
-class TDbrBinCABAC : public TDecBinCABAC {
-protected:
-  // Stores an XML reader for reading xml tags
-  TDbrXmlReader* stream;
-
-
+class TDbrDummyBitstream : public TComInputBitstream {
 public:
-  // XML reader management
-  TDbrXmlReader* getXmlReader();
-  Void setXmlReader(TDbrXmlReader* stream);
-
-
-  // Override virtual TDecBinIf methods and make them read from debraided
-  //   bitstream
-  Void start();
-  Void finish();
-  Void decodeBin(UInt& ruiBin, ContextModel& rcCtxModel);
-  Void decodeBinEP(UInt& ruiBin);
-  Void decodeBinsEP(UInt& ruiBins, Int numBins);
-  Void decodeBinTrm(UInt& ruiBin);
-  Void xReadPCMCode(UInt uiLength, UInt& ruiCode);
+  // Override and disable select virtual TComInputBitstream methods
+  UInt readByteAlignment();
+  TComInputBitstream* extractSubstream(UInt uiNumBits);
 };
 
 

@@ -46,7 +46,7 @@
 #include <assert.h>
 
 #include "TAppDbrTop.h"
-#include "TDbrStreamSet.h"
+#include "TDbrXmlReader.h"
 
 #include "TLibDecoder/AnnexBread.h"
 #include "TLibDecoder/NALread.h"
@@ -88,18 +88,21 @@ UInt TAppDbrTop::numDecodingErrorsDetected() const {
  */
 Void TAppDbrTop::debraid() {
   // Picture order count
-  Int poc;
+  Int poc = -1;
 
   // Pointer to decoded picture buffer
   TComList<TComPic*>* dpb = nullptr;
 
   // Open input debraided bitstreams for reading source video
-  TDbrStreamSet inputStreams;
-  inputStreams.open(m_inputFileName);
+  std::ifstream inputStream;
+  xOpenInputStream(inputStream);
 
   // Open output h265 bitstream for writing rebraided video
   std::ofstream outputStream;
   xOpenOutputStream(outputStream);
+
+  // Create xml reader object
+  TDbrXmlReader xmlReader(inputStream);
 
   // Reset decoded yuv output stream
   if (m_decodedYUVOutputStream.isOpen()) {
@@ -107,30 +110,47 @@ Void TAppDbrTop::debraid() {
   }
 
   // Copy decoding configuration to the decoder
-  m_decoder.getCavlcDecoder().setBitstreams(&inputStreams);
-  m_decoder.getSbacDecoder().setBitstreams(&inputStreams);
-  m_decoder.getSbacDecoder().setCabacReader(&m_decoder.getCabacReader());
-  xConfigDecoder();
+  {
+    TDbrCavlc&    cavlcDecoder = m_decoder.getCavlcDecoder();
+    TDbrSbac&     sbacDecoder  = m_decoder.getSbacDecoder();
+    TDbrBinCABAC& cabacReader  = m_decoder.getCabacReader();
+    cavlcDecoder.setXmlReader(&xmlReader);
+    sbacDecoder.setXmlReader(&xmlReader);
+    cabacReader.setXmlReader(&xmlReader);
+    sbacDecoder.setCabacReader(&cabacReader);
+    xConfigDecoder();
+  }
 
   // Adjust the last output POC index if seeking is required before decoding
   m_lastOutputPOC += m_iSkipFrame;
-
-  // Input NAL unit
-  InputNALUnit nalu;
-
-  // Indicates if decode() needs to be called twice on the same nal unit
-  Bool isNalUnitQueued = false;
 
   // TODO: Write description of this variable's purpose
   Bool loopFiltered = false;
 
   // Main decoder loop
-  while (inputStreams.hasAnotherNalUnit() || isNalUnitQueued) {
-    // Either read a new nal unit or rewind the bitstream
-    if (isNalUnitQueued) {
-      inputStreams.rewind();
-    } else {
-      inputStreams.readNextNalUnit(nalu);
+  while (!inputStream.fail()) {
+    // Remember the starting position of the input bitstream file cursor
+    /* Note: This serves to work around a design fault in the decoder, whereby
+     * the process of reading a new slice that is the first slice of a new frame
+     * requires the TDecTop::decode() method to be called again with the same
+     * nal unit. */
+#if RExt__DECODER_DEBUG_BIT_STATISTICS
+    auto backupStats(TComCodingStatistics::GetStatistics());
+    const streampos initialPositionInInputBitstream =
+      inputStream.tellg() - streampos(inputByteStream.GetNumBufferedBytes());
+#else
+    const streampos initialPositionInInputBitstream = inputStream.tellg();
+#endif
+
+    // Read one NAL unit from input bitstream
+    InputNALUnit nalu;
+    xmlReader.readOpenTag(nalu);
+
+    // If it's a parameter set nal unit, copy the nal unit contents into the
+    //   bitstream. This is so the parameter set manager knows whether the
+    //   parameter set is new or if it is a duplicate.
+    if (xIsParameterSetNalUnit(nalu.m_nalUnitType)) {
+      xCopyStringIntoNaluBitstream(xmlReader.peekNextCompleteTag("nalu"), nalu);
     }
 
     // Create an output NAL unit to store the reencoded data
@@ -140,9 +160,6 @@ Void TAppDbrTop::debraid() {
       nalu.m_nuhLayerId
     );
 
-    // If present, copy nal unit body directly from other stream
-    xCopyNaluBodyFromStream(nalu, inputStreams.getBitstream(TDbrStreamSet::STREAM::OTHER));
-
     // True if a new picture is found within the current NAL unit
     Bool wasNewPictureFound = false;
 
@@ -151,20 +168,46 @@ Void TAppDbrTop::debraid() {
       m_iMaxTemporalLayer < 0 || nalu.m_temporalId <= m_iMaxTemporalLayer
     );
 
+    // Determine if the nal unit should be decoded
+    Bool willDecodeNalUnit = (
+      willDecodeTemporalId &&
+      xWillDecodeLayer(nalu.m_nuhLayerId) &&
+      !xIsNalUnitBodyRawEncoded(nalu.m_nalUnitType)
+    );
+
     // Call decoding function
-    if (willDecodeTemporalId && xWillDecodeLayer(nalu.m_nuhLayerId)) {
+    if (willDecodeNalUnit) {
       wasNewPictureFound = m_decoder.decode(nalu, m_iSkipFrame, m_lastOutputPOC);
       if (!wasNewPictureFound) {
         xEncodeUnit(nalu, reencodedNalu);
       }
     } else {
+      xReadRawNaluBody(nalu, xmlReader);
       m_transcoder.transcode(nalu, reencodedNalu);
     }
 
-    // Add the new NAL unit to the current access unit
+    // If a new picture was found in the current NAL unit, rewind the input
+    //   bitstream file cursor
+    if (wasNewPictureFound) {
+      inputStream.clear();
+      /* initialPositionInInputBitstream points to the current nalunit
+       * payload[1] due to the need for the annexB parser to read three extra
+       * bytes. [1] except for the first NAL unit in the file (but
+       * wasNewPictureFound doesn't happen then)
+       */
+#if RExt__DECODER_DEBUG_BIT_STATISTICS
+      inputStream.seekg(initialPositionInInputBitstream);
+      inputByteStream.reset();
+      TComCodingStatistics::SetStatistics(backupStats);
+#else
+      inputStream.seekg(initialPositionInInputBitstream);
+#endif
+    }
+
+    // Add the nal unit to the current access unit
     if (!wasNewPictureFound) {
       m_currentAccessUnit.push_back(new NALUnitEBSP(reencodedNalu));
-        
+
       // TODO: Technically, it's probably better to wait for a new access unit
       //   signal before flushing the access unit, but for now we will flush
       xFlushAccessUnit(outputStream);
@@ -173,19 +216,19 @@ Void TAppDbrTop::debraid() {
       //if (xIsFirstNalUnitOfNewAccessUnit(nalu)) {
       //  xFlushAccessUnit(outputStream);
       //}
-    }
 
-    // If a new picture was found in the current NAL unit, it needs to be
-    //   decoded again
-    isNalUnitQueued = wasNewPictureFound;
+      // Consume nal unit closing xml tag
+      xmlReader.readCloseTag("nalu");
+      xmlReader.consumeEmptyLines();
+    }
 
     // True if a picture was finished while decoding the current NAL unit
     Bool wasPictureFinished =
-      (wasNewPictureFound || inputStreams.fail() || nalu.isEOS());
+      (wasNewPictureFound || inputStream.fail() || nalu.isEOS());
 
     // Apply in-loop filters to reconstructed picture
     if (wasPictureFinished && !m_decoder.getFirstSliceInSequence()) {
-      if (!loopFiltered || !inputStreams.fail()) {
+      if (!loopFiltered || !inputStream.fail()) {
         m_decoder.executeLoopFilters(poc, dpb);
       }
       loopFiltered = nalu.isEOS();
@@ -246,7 +289,6 @@ Void TAppDbrTop::debraid() {
   }
 
   // Send any remaining pictures to output
-  //xFlushDebraidedStreams(outputStream);
   xFlushPictureBuffer(dpb);
 
   // Free decoder resources
@@ -843,14 +885,89 @@ Void TAppDbrTop::xFlushAccessUnit(ostream& stream) {
 
 
 /**
- * Directly copies a nal unit from a bitstream
+ * Directly copies raw data from the xml reader into the nal unit body
  */
-Void TAppDbrTop::xCopyNaluBodyFromStream(InputNALUnit& nalu, const TComInputBitstream& bitstream) const {
-  const std::vector<UChar>& srcFifo       = bitstream.getFifo();
-        TComInputBitstream& naluBitstream = nalu.getBitstream();
-        std::vector<UChar>& naluFifo      = naluBitstream.getFifo();
-  naluBitstream.resetToStart();
-  naluFifo = srcFifo;
+Void TAppDbrTop::xReadRawNaluBody(InputNALUnit& nalu, TDbrXmlReader& xmlReader) {
+  xmlReader.readOpenTag("raw");
+
+  std::string line;
+  std::string contents = "";
+  std::istream& underlyingStream = *xmlReader.getStream();
+  while (std::getline(underlyingStream, line)) {
+    if (line.back() == '\r') {
+      line.erase(line.length() - 1);
+    }
+    if (TDbrXmlReader::isCloseTag(line, "raw")) {
+      if (contents.size() > 0) {
+        contents.erase(contents.back() - 1);
+      }
+      break;
+    } else {
+      contents += line + "\n";
+    }
+  }
+
+  std::vector<UChar>& fifo = nalu.getBitstream().getFifo();
+  fifo.resize(contents.size() + 2);
+  std::copy(contents.begin(), contents.end(), fifo.data() + 2);
+}
+
+
+/**
+ * Directly copies raw data from the xml reader into the nal unit body
+ */
+Void TAppDbrTop::xCopyStringIntoNaluBitstream(const string& str, InputNALUnit& nalu) {
+  std::vector<UChar>& fifo = nalu.getBitstream().getFifo();
+  fifo.resize(str.size());
+  std::copy(str.begin(), str.end(), fifo.data());
+}
+
+
+/**
+ * True if a nal unit's contents are raw-encoded
+ */
+Bool TAppDbrTop::xIsNalUnitBodyRawEncoded(NalUnitType nalUnitType) {
+  switch (nalUnitType) {
+    case NAL_UNIT_VPS:
+    case NAL_UNIT_SPS:
+    case NAL_UNIT_PPS:
+
+    case NAL_UNIT_CODED_SLICE_TRAIL_R:
+    case NAL_UNIT_CODED_SLICE_TRAIL_N:
+    case NAL_UNIT_CODED_SLICE_TSA_R:
+    case NAL_UNIT_CODED_SLICE_TSA_N:
+    case NAL_UNIT_CODED_SLICE_STSA_R:
+    case NAL_UNIT_CODED_SLICE_STSA_N:
+    case NAL_UNIT_CODED_SLICE_BLA_W_LP:
+    case NAL_UNIT_CODED_SLICE_BLA_W_RADL:
+    case NAL_UNIT_CODED_SLICE_BLA_N_LP:
+    case NAL_UNIT_CODED_SLICE_IDR_W_RADL:
+    case NAL_UNIT_CODED_SLICE_IDR_N_LP:
+    case NAL_UNIT_CODED_SLICE_CRA:
+    case NAL_UNIT_CODED_SLICE_RADL_N:
+    case NAL_UNIT_CODED_SLICE_RADL_R:
+    case NAL_UNIT_CODED_SLICE_RASL_N:
+    case NAL_UNIT_CODED_SLICE_RASL_R:
+      return false;
+
+    default:
+      return true;
+  }
+}
+
+
+/**
+ * True if the nal unit contains a parameter set
+ */
+Bool TAppDbrTop::xIsParameterSetNalUnit(NalUnitType nalUnitType) {
+  switch (nalUnitType) {
+    case NAL_UNIT_VPS:
+    case NAL_UNIT_SPS:
+    case NAL_UNIT_PPS:
+      return true;
+    default:
+      return false;
+  }
 }
 
 

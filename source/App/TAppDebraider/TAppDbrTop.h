@@ -61,6 +61,7 @@
 using std::ifstream;
 using std::ofstream;
 using std::ostream;
+using std::string;
 
 
 //! \ingroup TAppDebraider
@@ -147,8 +148,17 @@ protected:
   // Re-encodes a NAL unit
   Void xEncodeUnit(const InputNALUnit& sourceNalu, OutputNALUnit& encodedNalu);
 
-  // Directly copies a nal unit from a bitstream
-  Void xCopyNaluBodyFromStream(InputNALUnit& nalu, const TComInputBitstream& bitstream) const;
+  // Directly copies raw data from the xml reader into the nal unit body
+  static Void xReadRawNaluBody(InputNALUnit& nalu, TDbrXmlReader& xmlReader);
+
+  // Directly copies a string into the bitstream of a nal unit
+  static Void xCopyStringIntoNaluBitstream(const string& str, InputNALUnit& nalu);
+
+  // True if a nal unit's contents are raw-encoded
+  static Bool xIsNalUnitBodyRawEncoded(NalUnitType nalUnitType);
+
+  // True if the nal unit contains a parameter set
+  static Bool xIsParameterSetNalUnit(NalUnitType nalUnitType);
 
 
   /**

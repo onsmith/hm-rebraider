@@ -211,9 +211,9 @@ public:
   UInt     readByte() { UInt tmp; readByte( tmp ); return tmp; }
   UInt getNumBitsUntilByteAligned() { return m_num_held_bits & (0x7); }
   UInt getNumBitsLeft() { return 8*((UInt)m_fifo.size() - m_fifo_idx) + m_num_held_bits; }
-  TComInputBitstream *extractSubstream( UInt uiNumBits ); // Read the nominated number of bits, and return as a bitstream.
+  virtual TComInputBitstream *extractSubstream( UInt uiNumBits ); // Read the nominated number of bits, and return as a bitstream.
   UInt  getNumBitsRead() { return m_numBitsRead; }
-  UInt readByteAlignment();
+  virtual UInt readByteAlignment();
 
   Void      pushEmulationPreventionByteLocation ( UInt pos )                         { m_emulationPreventionByteLocation.push_back( pos ); }
   UInt      numEmulationPreventionBytesRead     ()                                   { return (UInt) m_emulationPreventionByteLocation.size();    }
