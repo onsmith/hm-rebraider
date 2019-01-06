@@ -899,7 +899,7 @@ Void TAppDbrTop::xReadRawNaluBody(InputNALUnit& nalu, TDbrXmlReader& xmlReader) 
     }
     if (TDbrXmlReader::isCloseTag(line, "raw")) {
       if (contents.size() > 0) {
-        contents.erase(contents.back() - 1);
+        contents.erase(contents.length() - 1);
       }
       break;
     } else {
